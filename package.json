@@ -1,0 +1,23 @@
+{
+  "name": "chat-arena",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "demo": "node scripts/dev.mjs",
+    "demo:import": "node scripts/import-demo-workbook.mjs",
+    "build": "node scripts/build.mjs --pages",
+    "build:server": "node scripts/build.mjs",
+    "preview:pages": "node scripts/preview-pages.mjs",
+    "start": "node scripts/dev.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "check": "node --check app.js && node --check ui/admin.js && node --check ui/api-client.js && node --check ui/arena.js && node --check ui/companion.js && node --check ui/state.js && node --check ui/static-api.js && node --check shared/data-adapter.js && node --check shared/arena-utils.js && node --check shared/companion-growth.js && node --check shared/companion-model.js && node --check worker/index.js && node --check scripts/dev.mjs && node --check scripts/local-api.mjs && node --check scripts/preview-pages.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "type": "module",
+  "displayName": "Chat Arena"
+}

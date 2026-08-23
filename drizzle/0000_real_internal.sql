@@ -1,0 +1,98 @@
+CREATE TABLE IF NOT EXISTS dataset_versions (
+  id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('draft', 'ready', 'active', 'archived')),
+  source_filename TEXT,
+  source_type TEXT,
+  source_sha256 TEXT,
+  source_key TEXT,
+  mapping_json TEXT NOT NULL DEFAULT '{}',
+  summary_json TEXT NOT NULL DEFAULT '{}',
+  sample_count INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  published_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS samples (
+  id TEXT PRIMARY KEY,
+  dataset_version_id TEXT NOT NULL,
+  source_uid TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  source_row INTEGER NOT NULL,
+  query TEXT NOT NULL,
+  context_json TEXT NOT NULL DEFAULT '[]',
+  response_a TEXT NOT NULL,
+  response_b TEXT NOT NULL,
+  task_type TEXT,
+  human_winner TEXT CHECK (human_winner IN ('A', 'B', 'tie')),
+  model_a_id TEXT,
+  model_b_id TEXT,
+  dimension TEXT,
+  difficulty INTEGER CHECK (difficulty IS NULL OR difficulty BETWEEN 1 AND 5),
+  risk TEXT,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (dataset_version_id) REFERENCES dataset_versions(id) ON DELETE CASCADE,
+  UNIQUE (dataset_version_id, source_uid)
+);
+
+CREATE TABLE IF NOT EXISTS votes (
+  id TEXT PRIMARY KEY,
+  dataset_version_id TEXT NOT NULL,
+  sample_id TEXT NOT NULL,
+  rater_id TEXT NOT NULL,
+  winner TEXT NOT NULL CHECK (winner IN ('A', 'B', 'tie_good', 'tie_bad')),
+  reason_tags_json TEXT NOT NULL DEFAULT '[]',
+  dwell_ms INTEGER NOT NULL DEFAULT 0,
+  context_opened INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (dataset_version_id) REFERENCES dataset_versions(id),
+  FOREIGN KEY (sample_id) REFERENCES samples(id),
+  UNIQUE (dataset_version_id, sample_id, rater_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_progress (
+  dataset_version_id TEXT NOT NULL,
+  rater_id TEXT NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0,
+  streak INTEGER NOT NULL DEFAULT 0,
+  last_active TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (dataset_version_id, rater_id),
+  FOREIGN KEY (dataset_version_id) REFERENCES dataset_versions(id)
+);
+
+CREATE TABLE IF NOT EXISTS battle_tokens (
+  id TEXT PRIMARY KEY,
+  dataset_version_id TEXT NOT NULL,
+  sample_id TEXT NOT NULL,
+  rater_id TEXT NOT NULL,
+  swapped INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  consumed_at TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (dataset_version_id) REFERENCES dataset_versions(id),
+  FOREIGN KEY (sample_id) REFERENCES samples(id)
+);
+
+CREATE TABLE IF NOT EXISTS dataset_events (
+  id TEXT PRIMARY KEY,
+  dataset_version_id TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (dataset_version_id) REFERENCES dataset_versions(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dataset_versions_status ON dataset_versions(status);
+CREATE INDEX IF NOT EXISTS idx_samples_version ON samples(dataset_version_id);
+CREATE INDEX IF NOT EXISTS idx_samples_version_dimension ON samples(dataset_version_id, dimension);
+CREATE INDEX IF NOT EXISTS idx_samples_version_content ON samples(dataset_version_id, content_hash);
+CREATE INDEX IF NOT EXISTS idx_votes_version_rater ON votes(dataset_version_id, rater_id);
+CREATE INDEX IF NOT EXISTS idx_votes_version_sample ON votes(dataset_version_id, sample_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_rater_version ON battle_tokens(rater_id, dataset_version_id, consumed_at);
+CREATE INDEX IF NOT EXISTS idx_events_version ON dataset_events(dataset_version_id, created_at);
+
+PRAGMA optimize;
