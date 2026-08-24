@@ -2,10 +2,11 @@ import { aggregateVotes, chooseBalancedSample, cleanReasonTags, displayReference
 import { MAX_FILE_BYTES, MAX_ROWS } from "../shared/data-adapter.js";
 import {
   GENOMES,
-  MILESTONES,
   SPECIES,
   addScores,
   analysisToPoints,
+  milestoneDefinition,
+  normalizeSessionGoal,
   pendingMilestone,
   scoreReasonTags,
   speciesForScores,
@@ -109,7 +110,9 @@ export function createLocalApi(runtimeEnv = {}) {
 
   const active = () => state.versions.find((version) => version.status === "active") || null;
   const progressKey = (versionId) => `${versionId}:${user.id}`;
-  const versionGoal = (version) => Math.min(9, version?.samples.length || 0);
+  const defaultGoal = (version) => Math.min(9, version?.samples.length || 0);
+  const progressFor = (version) => version ? state.progress.get(progressKey(version.id)) : null;
+  const versionGoal = (version, progress = progressFor(version)) => normalizeSessionGoal(progress?.goal, version?.samples.length || 0) || defaultGoal(version);
 
   const ensureSeason = (version) => {
     if (!state.companion || !version) return null;
@@ -133,9 +136,11 @@ export function createLocalApi(runtimeEnv = {}) {
   const recomputeSeason = (season, version) => {
     const previousReveal = Boolean(season.revealed_at);
     season.scores = addScores(...season.events.map((event) => event.delta));
+    const progress = progressFor(version);
+    const goal = versionGoal(version, progress);
     const reflected = season.events.filter((event) => event.source_type === "reflection").map((event) => event.milestone);
-    const completed = Math.min(versionGoal(version), state.progress.get(progressKey(version.id))?.completed || 0);
-    const stage = stageForProgress(completed, reflected);
+    const completed = Math.min(goal, progress?.completed || 0);
+    const stage = stageForProgress(completed, reflected, goal, previousReveal);
     season.stage = stage.id;
     if (stage.id === "revealed") {
       const species = speciesForScores(season.scores, state.companion.genome);
@@ -152,11 +157,13 @@ export function createLocalApi(runtimeEnv = {}) {
     if (!state.companion) return { born: false, genomes: Object.values(GENOMES) };
     const season = createSeason ? ensureSeason(version) : state.companion.seasons.find((item) => item.dataset_version_id === version?.id);
     if (!season || !version) return { born: true, companion: { genome: state.companion.genome, mainSpecies: state.companion.main_species, lineageCount: state.companion.lineage_count }, season: null };
+    const progress = progressFor(version);
+    const goal = versionGoal(version, progress);
     const reflected = season.events.filter((event) => event.source_type === "reflection").map((event) => event.milestone);
-    const completed = Math.min(versionGoal(version), state.progress.get(progressKey(version.id))?.completed || 0);
-    const stage = stageForProgress(completed, reflected);
-    const pending = pendingMilestone(completed, reflected);
-    const upcoming = [3, 6, 9].find((milestone) => completed < milestone) || null;
+    const completed = Math.min(goal, progress?.completed || 0);
+    const stage = stageForProgress(completed, reflected, goal, Boolean(season.revealed_at));
+    const pending = pendingMilestone(completed, reflected, goal);
+    const upcoming = [goal / 3, goal * 2 / 3, goal].find((milestone) => completed < milestone) || null;
     const latest = season.events.slice().reverse().find((event) => event.companion_reply);
     const species = Object.values(SPECIES).find((item) => item.id === season.species) || null;
     return {
@@ -168,13 +175,16 @@ export function createLocalApi(runtimeEnv = {}) {
         stage: stage.id,
         stageName: stage.name,
         completed,
-        total: versionGoal(version),
+        total: goal,
+        goal,
         nextMilestone: upcoming,
         remaining: upcoming ? Math.max(0, upcoming - completed) : 0,
-        pendingReflection: pending ? { ...MILESTONES[pending] } : null,
+        pendingReflection: pending ? milestoneDefinition(goal, pending) : null,
         latestReply: latest?.companion_reply || null,
         analysisMode: latest?.fallback ? "demo" : latest?.provider || "rules",
         revealed: Boolean(species),
+        finalized: Boolean(season.revealed_at),
+        canFinalize: stage.id === "ready_to_reveal",
         species: species ? { id: species.id, name: species.name, tagline: species.tagline, sprite: species.sprite } : null,
         traces: season.events.filter((event) => event.source_type === "reflection" && event.memory_summary).slice(-3).map((event) => event.memory_summary)
       }
@@ -194,8 +204,8 @@ export function createLocalApi(runtimeEnv = {}) {
 
   const session = () => {
     const version = active();
-    const progress = version ? state.progress.get(progressKey(version.id)) : null;
-    const total = versionGoal(version);
+    const progress = progressFor(version);
+    const total = versionGoal(version, progress);
     const completed = Math.min(total, progress?.completed || 0);
     return { user, isAdmin: true, runtime, activeVersion: versionDto(version), progress: { completed, total, goal: total, remaining: Math.max(0, total - completed), streak: progress?.streak || 0 }, companion: companionSnapshot(version), capabilities: { followUp: false, modelLeaderboard: false } };
   };
@@ -216,28 +226,40 @@ export function createLocalApi(runtimeEnv = {}) {
       const genome = String(body?.genome || "");
       if (!GENOMES[genome]) return error("请选择一种出生基因。", 422, "invalid_genome");
       if (state.companion && state.companion.genome !== genome) return error("出生基因已经确定。", 409, "genome_locked");
+      const version = active();
+      const requestedGoal = normalizeSessionGoal(body?.goal, version?.samples.length || 0) || defaultGoal(version);
+      const existingProgress = progressFor(version);
+      if (existingProgress?.goal && Number(existingProgress.goal) !== requestedGoal) return error("本轮题数已经确定，请先重置当前体验。", 409, "goal_locked");
       const existed = Boolean(state.companion);
       state.companion ||= { id: crypto.randomUUID(), genome, main_species: null, main_season_id: null, lineage_count: 0, seasons: [] };
-      ensureSeason(active());
+      ensureSeason(version);
+      if (version) state.progress.set(progressKey(version.id), {
+        ...(existingProgress || {}),
+        completed: existingProgress?.completed || 0,
+        goal: requestedGoal,
+        streak: existingProgress?.streak || 0,
+        last_active: existingProgress?.last_active || null
+      });
       return json({ companion: companionSnapshot() }, existed ? 200 : 201);
     }
 
     if (method === "POST" && url.pathname === "/api/companion/reflections") {
-      const parsed = validateReflectionInput(parseBody());
-      if (!parsed.ok) return error(parsed.message, 422, "invalid_reflection");
       const version = active();
+      const goal = versionGoal(version);
+      const parsed = validateReflectionInput(parseBody(), goal);
+      if (!parsed.ok) return error(parsed.message, 422, "invalid_reflection");
       if (!state.companion) return error("先选择聊灵的出生基因。", 409, "companion_not_born");
       const season = ensureSeason(version);
       const duplicate = season.events.find((item) => item.source_type === "reflection" && item.milestone === parsed.milestone);
       if (duplicate) return json({ companion: companionSnapshot(version, false), alreadySubmitted: true });
       const reflected = season.events.filter((item) => item.source_type === "reflection").map((item) => item.milestone);
-      const completed = Math.min(versionGoal(version), state.progress.get(progressKey(version.id))?.completed || 0);
-      if (pendingMilestone(completed, reflected) !== parsed.milestone) return error("这个成长阶段还没到，或者已经完成。", 409, "milestone_not_due");
+      const completed = Math.min(goal, state.progress.get(progressKey(version.id))?.completed || 0);
+      if (pendingMilestone(completed, reflected, goal) !== parsed.milestone) return error("这个成长阶段还没到，或者已经完成。", 409, "milestone_not_due");
       let analysis;
       let metadata;
       if (parsed.text) {
         const nodeEnv = globalThis.process?.env || {};
-        metadata = await analyzeReflection({ text: parsed.text, milestone: parsed.milestone, genome: state.companion.genome }, { ...nodeEnv, COMPANION_MODEL_PROVIDER: runtimeEnv.COMPANION_MODEL_PROVIDER || nodeEnv.COMPANION_MODEL_PROVIDER || "demo" });
+        metadata = await analyzeReflection({ text: parsed.text, milestone: parsed.milestone, goal, genome: state.companion.genome }, { ...nodeEnv, COMPANION_MODEL_PROVIDER: runtimeEnv.COMPANION_MODEL_PROVIDER || nodeEnv.COMPANION_MODEL_PROVIDER || "demo" });
         analysis = metadata.analysis;
       } else {
         analysis = { empathy: 0, exploration: 0, discernment: 0, toneLabels: [], companionReply: "留白也被我记住了。我们继续往前走。", memorySummary: "你为这一刻保留了一点安静", confidence: 1 };
@@ -261,6 +283,26 @@ export function createLocalApi(runtimeEnv = {}) {
       return json({ companion: companionSnapshot(version, false), reply: analysis.companionReply }, 201);
     }
 
+    if (method === "POST" && url.pathname === "/api/companion/finalize") {
+      const version = active();
+      if (!state.companion) return error("先选择聊灵的出生基因。", 409, "companion_not_born");
+      const season = ensureSeason(version);
+      const progress = progressFor(version);
+      const goal = versionGoal(version, progress);
+      const reflected = season.events.filter((item) => item.source_type === "reflection").map((item) => item.milestone);
+      const completed = Math.min(goal, Number(progress?.completed || 0));
+      if (completed < goal || pendingMilestone(completed, reflected, goal) !== null) return error("请先完成全部书页和成长章节。", 409, "not_ready_to_finalize");
+      if (!season.revealed_at) {
+        const species = speciesForScores(season.scores, state.companion.genome);
+        season.species = species.id;
+        season.revealed_at = new Date().toISOString();
+        if (season.role === "main") state.companion.main_species = species.id;
+        else state.companion.lineage_count += 1;
+      }
+      recomputeSeason(season, version);
+      return json({ companion: companionSnapshot(version, false), finalized: true });
+    }
+
     if (method === "POST" && url.pathname === "/api/demo/reset") {
       state.votes.length = 0;
       state.tokens.clear();
@@ -269,13 +311,46 @@ export function createLocalApi(runtimeEnv = {}) {
       return json({ reset: true, session: session() });
     }
 
+    if (method === "GET" && url.pathname === "/api/companion/review") {
+      const version = active();
+      const pages = state.votes
+        .filter((vote) => vote.dataset_version_id === version?.id && vote.rater_id === user.id)
+        .sort((left, right) => String(left.created_at).localeCompare(String(right.created_at)))
+        .map((vote) => {
+          const sample = version.samples.find((item) => item.id === vote.sample_id);
+          if (!sample) return null;
+          const swapped = Boolean(vote.display_swapped);
+          return {
+            voteId: vote.id,
+            winner: remapDisplayedVote(vote.winner, swapped),
+            reasons: [...(vote.reason_tags || [])],
+            reference: null,
+            payload: {
+              dataset: versionDto(version),
+              battle: {
+                sampleToken: null,
+                query: sample.query,
+                context: sample.context || [],
+                responseA: { text: swapped ? sample.response_b : sample.response_a },
+                responseB: { text: swapped ? sample.response_a : sample.response_b },
+                dimension: sample.dimension || null,
+                difficulty: sample.difficulty || null,
+                risk: sample.risk || null
+              }
+            }
+          };
+        }).filter(Boolean);
+      return json({ pages });
+    }
+
     if (method === "GET" && url.pathname === "/api/battles/next") {
       const version = active();
       if (!version) return json({ battle: null, reason: "no_active_dataset" });
       const current = state.progress.get(progressKey(version.id));
+      const total = versionGoal(version, current);
       const growth = companionSnapshot(version);
       if (growth.season?.pendingReflection) return json({ battle: null, reason: "reflection_pending", dataset: versionDto(version), companion: growth });
-      if ((current?.completed || 0) >= versionGoal(version)) return json({ battle: null, reason: "complete", dataset: versionDto(version), companion: growth });
+    if ((current?.completed || 0) >= total) return json({ battle: null, reason: growth.season?.canFinalize ? "ready_to_reveal" : "complete", dataset: versionDto(version), companion: growth });
       const voted = new Set(state.votes.filter((vote) => vote.dataset_version_id === version.id && vote.rater_id === user.id).map((vote) => vote.sample_id));
       const available = version.samples.filter((sample) => !voted.has(sample.id));
       if (!available.length) return json({ battle: null, reason: "complete", dataset: versionDto(version) });
@@ -289,7 +364,7 @@ export function createLocalApi(runtimeEnv = {}) {
       const token = crypto.randomUUID();
       state.tokens.set(token, { sampleToken: token, dataset_version_id: version.id, sample_id: sample.id, rater_id: user.id, swapped, consumed: false });
       const progress = state.progress.get(progressKey(version.id));
-      return json({ dataset: versionDto(version), progress: { current: (progress?.completed || 0) + 1, total: versionGoal(version) }, battle: {
+      return json({ dataset: versionDto(version), progress: { current: (progress?.completed || 0) + 1, total }, battle: {
         sampleToken: token,
         query: sample.query,
         context: sample.context || [],
@@ -313,14 +388,15 @@ export function createLocalApi(runtimeEnv = {}) {
       const sample = version.samples.find((item) => item.id === token.sample_id);
       const previous = state.progress.get(progressKey(version.id));
       const today = todayKey();
-      const progress = { completed: (previous?.completed || 0) + 1, streak: nextStreak(previous, today), last_active: today };
+      const total = versionGoal(version, previous);
+      const progress = { completed: (previous?.completed || 0) + 1, goal: total, streak: nextStreak(previous, today), last_active: today };
       state.progress.set(progressKey(version.id), progress);
       token.consumed = true;
       const voteId = crypto.randomUUID();
       const reasonTags = cleanReasonTags(body.reasonTags || []);
       state.votes.push({ id: voteId, dataset_version_id: version.id, sample_id: sample.id, rater_id: user.id, winner: remapDisplayedVote(body.winner, token.swapped), display_swapped: token.swapped, reason_tags: reasonTags, created_at: new Date().toISOString(), updated_at: null });
       const companion = upsertVoteGrowth(version, voteId, reasonTags);
-      return json({ voteId, reference: displayReference(sample.human_winner, token.swapped), progress: { completed: Math.min(progress.completed, versionGoal(version)), total: versionGoal(version), streak: progress.streak }, companion }, 201);
+      return json({ voteId, reference: displayReference(sample.human_winner, token.swapped), progress: { completed: Math.min(progress.completed, total), total, goal: total, streak: progress.streak }, companion }, 201);
     }
 
     const voteMatch = url.pathname.match(/^\/api\/votes\/([^/]+)$/);
@@ -329,6 +405,9 @@ export function createLocalApi(runtimeEnv = {}) {
       if (!body) return error("请求内容不是有效 JSON。", 400, "invalid_json");
       const vote = state.votes.find((item) => item.id === voteMatch[1] && item.rater_id === user.id);
       if (!vote) return error("没有找到这张票。", 404, "vote_not_found");
+      const lockedVersion = state.versions.find((item) => item.id === vote.dataset_version_id);
+      const lockedSeason = state.companion?.seasons.find((item) => item.dataset_version_id === lockedVersion?.id);
+      if (lockedSeason?.revealed_at) return error("这本书已经装订，答案只能阅读不能修改。", 409, "season_locked");
       if (body.winner !== undefined) {
         if (!["A", "B", "tie_good", "tie_bad"].includes(body.winner)) return error("投票选项不在允许范围内。", 422, "invalid_vote");
         vote.winner = remapDisplayedVote(body.winner, Boolean(vote.display_swapped));

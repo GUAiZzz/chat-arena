@@ -28,16 +28,16 @@
       <div class="welcome-shell">
         <div class="welcome-copy">
           <p class="eyebrow">CHAT ARENA · YOUR FIRST COMPANION</p>
-          <h1 id="welcomeTitle">聊九次，<em>养成一只聊灵。</em></h1>
-          <p>你只需要选出更愿意继续聊的回复。它会记住你怎样接住一句话，但不会给你评分。</p>
+          <h1 id="welcomeTitle">翻开今天的书，<em>养成一只聊灵。</em></h1>
+          <p>你只需要选出更愿意继续聊的回复。每一次判断都会留下一个小小的印章，陪它完成三次成长。</p>
           <div class="welcome-facts" aria-label="体验内容">
-            <span><b>09</b>次匿名判断</span><span><b>03</b>次成长对话</span><span><b>01</b>次最终揭晓</span>
+            <span><b id="welcomeGoalFact">09</b>次匿名判断</span><span><b>03</b>次成长对话</span><span><b>01</b>次最终揭晓</span>
           </div>
           <button class="button primary welcome-action" id="enterArena" type="button">进入 Chat Arena <span aria-hidden="true">→</span></button>
           <small>成长不影响评测结果 · 里程碑原文不会被保存</small>
         </div>
         <fieldset class="genome-picker" aria-describedby="genomeHint">
-          <legend><span>先选择生命基因</span><small id="genomeHint">它决定聊灵来自哪片生态；最终伙伴会在第 9 次判断后揭晓。</small></legend>
+          <legend><span>先选择生命基因</span><small id="genomeHint">它决定聊灵来自哪片生态；最终伙伴会在最后一章揭晓。</small></legend>
           <label class="genome-option is-selected" data-genome-card="light">
             <input type="radio" name="genome" value="light" checked />
             <span class="genome-glyph genome-light" aria-hidden="true"><i></i></span>
@@ -56,6 +56,15 @@
             <span><b>异星</b><small>洞穴 · 星孢 · 探索</small></span>
             <em>选择</em>
           </label>
+        </fieldset>
+        <fieldset class="goal-picker" aria-describedby="goalHint">
+          <legend><span>今天想做几题？</span><small id="goalHint">不管选多长，聊灵都会经历三次变化。</small></legend>
+          <div class="goal-options">
+            <label class="goal-option"><input type="radio" name="sessionGoal" value="3" /><span><b>3</b><small>快速看一眼</small></span></label>
+            <label class="goal-option"><input type="radio" name="sessionGoal" value="6" /><span><b>6</b><small>轻量完整</small></span></label>
+            <label class="goal-option is-selected"><input type="radio" name="sessionGoal" value="9" checked /><span><b>9</b><small>标准体验</small></span></label>
+            <label class="goal-option"><input type="radio" name="sessionGoal" value="12" /><span><b>12</b><small>充分养成</small></span></label>
+          </div>
         </fieldset>
       </div>
     </section>
@@ -99,9 +108,9 @@
       <section class="view is-active" id="battleView" data-view-panel="battle" aria-labelledby="battleTitle">
         <div class="page-heading battle-heading">
           <div>
-            <p class="eyebrow">BLIND CHAT · 01—09</p>
-            <h1 id="battleTitle">这一句，<em>你更愿意让谁接住？</em></h1>
-            <p>不猜模型，只判断这次聊天。你的选择会计入评测，也会让聊灵慢慢长出自己的形状。</p>
+            <p class="eyebrow" id="battleKicker">CHAPTER 01 · PAGE 01—09</p>
+          <h1 id="battleTitle">打开一页，<em>留下一个判断。</em></h1>
+            <p>把两句话放在同一页读完。选完、留下理由，再翻到下一页。</p>
           </div>
           <div class="progress-card" aria-label="当前题库评测进度">
             <div><small>我的进度</small><b id="battleProgressText">0 / 0</b></div>
@@ -112,6 +121,7 @@
         <div class="battle-navigation" id="battleNavigation" hidden>
           <button class="button ghost" id="previousBattle" type="button" disabled><span aria-hidden="true">←</span> 上一题</button>
           <span id="battlePosition">第 1 题 · 已完成 0 / 9</span>
+          <button class="button ghost" id="openContents" type="button">目录 <span aria-hidden="true">⌘</span></button>
         </div>
 
         <section class="empty-state" id="battleEmpty" hidden>
@@ -119,17 +129,22 @@
           <h2 id="battleEmptyTitle">现在没有可评测的题。</h2>
           <p id="battleEmptyCopy">请让管理员先发布一版题库。</p>
           <button class="button secondary" id="emptyAdminButton" type="button" data-view="admin" hidden>去管理题库</button>
+          <button class="button primary" id="reviewBookButton" type="button" hidden>校对整本书 <span aria-hidden="true">→</span></button>
         </section>
 
-        <div class="battle-shell" id="battleShell" aria-busy="true">
-          <section class="battle-main">
+        <div class="battle-shell book-layout" id="battleShell" aria-busy="true">
+          <section class="battle-main book-page">
+            <div class="book-page-topline" aria-label="当前书页">
+              <span><i aria-hidden="true"></i>CHAT ARENA · 今日章节</span>
+              <b id="bookPageNumber">PAGE 01</b>
+            </div>
             <button class="context-toggle" id="contextToggle" type="button" aria-expanded="false" aria-controls="contextPanel">
               <span><small>对话前文</small><b>先看最后一句。拿不准，再展开前文。</b></span>
               <span><i id="contextCount">0 条</i><b id="contextIcon" aria-hidden="true">＋</b></span>
             </button>
             <div class="context-panel" id="contextPanel" hidden></div>
 
-            <article class="query-card">
+            <article class="query-card book-query">
               <div class="card-meta">
                 <span>用户最新一句</span>
                 <div><i id="dimensionBadge">未标注</i><i id="difficultyBadge">难度未提供</i></div>
@@ -138,19 +153,19 @@
             </article>
 
             <div class="response-grid" aria-label="匿名回复对比">
-              <article class="response-card" data-response="A">
+              <article class="response-card book-leaf" data-response="A">
                 <header><span class="candidate-label"><i>A</i> 候选回复</span><button class="text-button expand-response" type="button" data-target="responseA" aria-expanded="false">展开全文</button></header>
                 <div class="response-copy" id="responseA"></div>
                 <footer><span>身份隐藏</span><span>顺序固定到投票结束</span></footer>
               </article>
-              <article class="response-card" data-response="B">
+              <article class="response-card book-leaf" data-response="B">
                 <header><span class="candidate-label"><i>B</i> 候选回复</span><button class="text-button expand-response" type="button" data-target="responseB" aria-expanded="false">展开全文</button></header>
                 <div class="response-copy" id="responseB"></div>
                 <footer><span>身份隐藏</span><span>顺序固定到投票结束</span></footer>
               </article>
             </div>
 
-            <section class="vote-dock" aria-labelledby="voteTitle">
+            <section class="vote-dock book-verdict" aria-labelledby="voteTitle">
               <div><small>你的判断</small><h2 id="voteTitle">如果是你，你会接着跟谁聊？</h2></div>
               <div class="vote-actions" id="voteActions">
                 <button class="vote-button vote-a" data-vote="A" type="button"><kbd>1</kbd><span>A 更好</span></button>
@@ -179,14 +194,14 @@
               <div class="result-mark" aria-hidden="true">✓</div>
               <p class="eyebrow">CHOICE SAVED</p>
               <h2>这一次，它也听见了。</h2>
-              <p id="referenceText">原始数据没有提供人工倾向。</p>
+              <p id="referenceText">这页已经记下。参考与统计会在整本书装订后打开。</p>
               <div class="reason-block">
                 <span><b>你为什么选它？</b><small>可选，最多 2 个。</small></span>
                 <div class="reason-tags" id="reasonTags"></div>
               </div>
               <div class="outcome-actions">
                 <button class="button ghost" id="editVote" type="button">修改选择</button>
-                <button class="button primary next-button" id="nextBattle" type="button">下一题 <span aria-hidden="true">→</span></button>
+                <button class="button primary next-button" id="nextBattle" type="button">保存此页并翻页 <span aria-hidden="true">→</span></button>
               </div>
             </section>
           </aside>
@@ -242,7 +257,7 @@
           <article><span>01</span><b>先盲选，再看参考</b><p>模型身份和人工倾向在投票前不出现；A/B 顺序对每个人稳定随机。</p></article>
           <article><span>02</span><b>选择只负责前进</b><p>A、B 或平局不会定义性格。每次有效投票只让成长阶段往前一步。</p></article>
           <article><span>03</span><b>理由留下隐藏倾向</b><p>“更懂我”等理由会被映射到共感、探索和分辨，但过程不展示数值。</p></article>
-          <article><span>04</span><b>三次成长对话</b><p>第 3、6、9 次判断后，它会问一句话。原文只用于当次分析，永不写入数据库。</p></article>
+          <article><span>04</span><b>三次成长对话</b><p>不管选择 3、6、9 还是 12 题，它都会在 1/3、2/3、3/3 节点问一句话。</p></article>
           <article><span>05</span><b>六只伙伴没有高低</b><p>每种生命基因都有两只可能的伙伴。最终形态只记录这轮沟通偏好的走向，不是人格诊断，也没有好坏排名。</p></article>
           <article><span>06</span><b>成长与结果完全隔离</b><p>结果页仍只读取真实票据；换题库会孵化分身，旧票和旧成长都不会混算。</p></article>
         </section>
@@ -336,11 +351,36 @@
       </form>
     </dialog>
 
+    <dialog class="contents-dialog" id="contentsDialog" aria-labelledby="contentsTitle">
+      <div class="contents-shell">
+        <div class="contents-heading">
+          <p class="eyebrow">THE TABLE OF CONTENTS</p>
+          <h2 id="contentsTitle">这本书读到这里。</h2>
+          <p>已经完成的页面可以回看。未读页面会在你翻到它时打开。</p>
+        </div>
+        <div class="contents-list" id="contentsList"></div>
+        <div class="dialog-actions"><button class="button primary" id="closeContents" type="button">回到当前页</button></div>
+      </div>
+    </dialog>
+
+    <dialog class="review-dialog" id="reviewDialog" aria-labelledby="reviewTitle">
+      <div class="review-shell">
+        <div class="review-heading">
+          <p class="eyebrow">BINDING CHECK</p>
+          <h2 id="reviewTitle">先校对整本书，<em>再让它长成最终形状。</em></h2>
+          <p>装订前可以回到任何一页修改。确认后，答案和聊灵形态会被锁定。</p>
+        </div>
+        <div class="review-summary" id="reviewSummary"></div>
+        <p class="inline-error" id="reviewError" hidden></p>
+        <div class="dialog-actions"><button class="button ghost" id="closeReview" type="button">再读一页</button><button class="button primary" id="finalizeBook" type="button">确认装订并揭晓 <span aria-hidden="true">→</span></button></div>
+      </div>
+    </dialog>
+
     <dialog class="reveal-dialog" id="revealDialog" aria-labelledby="revealName">
       <div class="reveal-shell">
         <div class="reveal-visual" aria-hidden="true"><span class="reveal-rays"></span><span class="companion-atlas reveal-art" id="revealArt"></span></div>
         <div class="reveal-copy">
-          <p class="eyebrow">YOUR LIAO LING · REVEALED</p>
+          <p class="eyebrow">YOUR LIAO LING · CHAT ARENA COMPANION · REVEALED</p>
           <span id="revealGenome">澄光基因 · 主伙伴</span>
           <h2 id="revealName">芽啵</h2>
           <p id="revealTagline">理解、好奇与分寸，在它身上恰好同频。</p>

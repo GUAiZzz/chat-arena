@@ -34,7 +34,7 @@ test("GitHub Pages state survives reload and completes nine votes, three reflect
   let api = createLocalApi({ runtime: "static", storage, COMPANION_MODEL_PROVIDER: "demo" });
   const session = await request(api, "/api/session");
   assert.equal(session.body.runtime, "static");
-  assert.equal(session.body.activeVersion.sampleCount, 9);
+  assert.equal(session.body.activeVersion.sampleCount, 12);
   await request(api, "/api/companion/birth", "POST", { genome: "cloud" });
 
   for (let index = 1; index <= 9; index += 1) {
@@ -60,10 +60,37 @@ test("GitHub Pages state survives reload and completes nine votes, three reflect
   api = createLocalApi({ runtime: "static", storage, COMPANION_MODEL_PROVIDER: "demo" });
   const restored = await request(api, "/api/session");
   assert.equal(restored.body.progress.completed, 9);
-  assert.equal(restored.body.companion.season.revealed, true);
-  assert.ok(["苔角", "暖灯"].includes(restored.body.companion.season.species.name));
+  assert.equal(restored.body.companion.season.revealed, false);
+  assert.equal(restored.body.companion.season.canFinalize, true);
+  const finalized = await request(api, "/api/companion/finalize", "POST");
+  assert.equal(finalized.status, 200);
+  assert.equal(finalized.body.companion.season.revealed, true);
   const results = await request(api, "/api/results");
   assert.equal(results.body.totalVotes, 9);
   assert.equal(results.body.participants, 1);
   assert.equal((await request(api, "/api/battles/next")).body.reason, "complete");
+});
+
+test("GitHub Pages supports a twelve-question season with fourth/eighth/twelfth growth nodes", async () => {
+  const api = createLocalApi({ runtime: "static", storage: new MemoryStorage(), COMPANION_MODEL_PROVIDER: "demo" });
+  const born = await request(api, "/api/companion/birth", "POST", { genome: "alien", goal: 12 });
+  assert.equal(born.body.companion.season.goal, 12);
+  for (let index = 1; index <= 12; index += 1) {
+    const next = await request(api, "/api/battles/next");
+    assert.ok(next.body.battle?.sampleToken, `battle ${index} should load`);
+    const vote = await request(api, "/api/votes", "POST", { sampleToken: next.body.battle.sampleToken, winner: "A", reasonTags: [], dwellMs: 700, contextOpened: false });
+    if ([4, 8, 12].includes(index)) {
+      assert.equal(vote.body.companion.season.pendingReflection.milestone, index);
+      const reflected = await request(api, "/api/companion/reflections", "POST", { milestone: index, text: "我想先理解，再一起继续。" });
+      assert.equal(reflected.status, 201);
+    }
+  }
+  const snapshot = await request(api, "/api/companion");
+  assert.equal(snapshot.body.companion.season.total, 12);
+  assert.equal(snapshot.body.companion.season.revealed, false);
+  assert.equal(snapshot.body.companion.season.canFinalize, true);
+  const finalized = await request(api, "/api/companion/finalize", "POST");
+  assert.equal(finalized.status, 200);
+  assert.equal(finalized.body.companion.season.revealed, true);
+  assert.ok(["卷星", "夜墨"].includes(finalized.body.companion.season.species.name));
 });

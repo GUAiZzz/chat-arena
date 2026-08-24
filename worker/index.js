@@ -13,9 +13,10 @@ import {
 import { MAX_FILE_BYTES, MAX_ROWS } from "../shared/data-adapter.js";
 import {
   GENOMES,
-  MILESTONES,
   SPECIES,
   analysisToPoints,
+  milestoneDefinition,
+  normalizeSessionGoal,
   pendingMilestone,
   scoreReasonTags,
   speciesForScores,
@@ -132,8 +133,8 @@ async function activeVersion(db) {
   return db.prepare("SELECT * FROM dataset_versions WHERE status = 'active' ORDER BY published_at DESC LIMIT 1").first();
 }
 
-function versionGoal(version) {
-  return Math.min(9, Math.max(0, Number(version?.sample_count || 0)));
+function versionGoal(version, selectedGoal = 9) {
+  return normalizeSessionGoal(selectedGoal, Number(version?.sample_count || 0)) || Math.min(9, Math.max(0, Number(version?.sample_count || 0)));
 }
 
 async function getCompanion(db, userId) {
@@ -180,14 +181,18 @@ async function recomputeSeason(db, companion, season, userId) {
   const reflected = events.filter((event) => event.source_type === "reflection").map((event) => Number(event.milestone));
   const progress = await db.prepare("SELECT completed FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
     .bind(season.dataset_version_id, userId).first();
-  const completed = Math.min(versionGoal(version), Number(progress?.completed || 0));
-  const stage = stageForProgress(completed, reflected);
+  const goal = versionGoal(version, progress?.goal);
+  const completed = Math.min(goal, Number(progress?.completed || 0));
+  const stage = stageForProgress(completed, reflected, goal, Boolean(season.revealed_at));
   const revealedNow = stage.id === "revealed" && !season.revealed_at;
   const species = stage.id === "revealed" ? speciesForScores(scores, companion.genome) : null;
+  // Existing D1 installations predate the review state. Keep the persisted enum compatible;
+  // the public snapshot still exposes `ready_to_reveal` from progress and reflections.
+  const persistedStage = stage.id === "ready_to_reveal" ? "forming" : stage.id;
   const updatedAt = nowIso();
   await db.prepare(`UPDATE companion_seasons SET stage = ?, empathy_score = ?, exploration_score = ?, discernment_score = ?,
       species = ?, revealed_at = CASE WHEN ? IS NOT NULL THEN COALESCE(revealed_at, ?) ELSE revealed_at END, updated_at = ? WHERE id = ?`)
-    .bind(stage.id, scores.empathy, scores.exploration, scores.discernment, species?.id || null,
+    .bind(persistedStage, scores.empathy, scores.exploration, scores.discernment, species?.id || null,
       species?.id || null, updatedAt, updatedAt, season.id).run();
   if (revealedNow && species) {
     if (season.role === "main") {
@@ -215,10 +220,11 @@ async function companionSnapshot(db, user, version, createSeason = true) {
   const reflected = events.filter((event) => event.source_type === "reflection").map((event) => Number(event.milestone));
   const progress = await db.prepare("SELECT completed FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
     .bind(version.id, user.id).first();
-  const completed = Math.min(versionGoal(version), Number(progress?.completed || 0));
-  const stage = stageForProgress(completed, reflected);
-  const pending = pendingMilestone(completed, reflected);
-  const upcoming = [3, 6, 9].find((milestone) => completed < milestone) || null;
+  const goal = versionGoal(version, progress?.goal);
+  const completed = Math.min(goal, Number(progress?.completed || 0));
+  const stage = stageForProgress(completed, reflected, goal, Boolean(season.revealed_at));
+  const pending = pendingMilestone(completed, reflected, goal);
+  const upcoming = [goal / 3, goal * 2 / 3, goal].find((milestone) => completed < milestone) || null;
   const latest = events.slice().reverse().find((event) => event.companion_reply);
   const traces = events.filter((event) => event.source_type === "reflection" && event.memory_summary).slice(-3).map((event) => event.memory_summary);
   const species = Object.values(SPECIES).find((item) => item.id === season.species) || null;
@@ -236,13 +242,16 @@ async function companionSnapshot(db, user, version, createSeason = true) {
       stage: stage.id,
       stageName: stage.name,
       completed,
-      total: versionGoal(version),
+      total: goal,
+      goal,
       nextMilestone: upcoming,
       remaining: upcoming ? Math.max(0, upcoming - completed) : 0,
-      pendingReflection: pending ? { ...MILESTONES[pending] } : null,
+      pendingReflection: pending ? milestoneDefinition(goal, pending) : null,
       latestReply: latest?.companion_reply || null,
       analysisMode: latest?.fallback ? "demo" : latest?.provider || "rules",
       revealed: Boolean(species),
+      finalized: Boolean(season.revealed_at),
+      canFinalize: stage.id === "ready_to_reveal",
       species: species ? { id: species.id, name: species.name, tagline: species.tagline, sprite: species.sprite } : null,
       traces
     }
@@ -272,9 +281,9 @@ async function sessionPayload(db, user, env) {
   const version = await activeVersion(db);
   let progress = { completed: 0, total: 0, goal: 0, remaining: 0, streak: 0 };
   if (version) {
-    const row = await db.prepare("SELECT completed, streak, last_active FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
+    const row = await db.prepare("SELECT completed, goal, streak, last_active FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
       .bind(version.id, user.id).first();
-    const total = versionGoal(version);
+    const total = versionGoal(version, row?.goal);
     const completed = Math.min(total, Number(row?.completed || 0));
     progress = { completed, total, goal: total, remaining: Math.max(0, total - completed), streak: Number(row?.streak || 0) };
   }
@@ -296,12 +305,13 @@ async function handleNextBattle(db, user) {
   const version = await activeVersion(db);
   if (!version) return responseJson({ battle: null, reason: "no_active_dataset" });
 
-  const currentProgress = await db.prepare("SELECT completed FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
+  const currentProgress = await db.prepare("SELECT completed, goal FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
     .bind(version.id, user.id).first();
+  const total = versionGoal(version, currentProgress?.goal);
   const growth = await companionSnapshot(db, user, version);
   if (growth.season?.pendingReflection) return responseJson({ battle: null, reason: "reflection_pending", dataset: versionDto(version), companion: growth });
-  if (Number(currentProgress?.completed || 0) >= versionGoal(version)) {
-    return responseJson({ battle: null, reason: "complete", dataset: versionDto(version), companion: growth });
+  if (Number(currentProgress?.completed || 0) >= total) {
+    return responseJson({ battle: null, reason: growth.season?.canFinalize ? "ready_to_reveal" : "complete", dataset: versionDto(version), companion: growth });
   }
 
   const samples = await all(db.prepare(`SELECT s.* FROM samples s
@@ -338,7 +348,7 @@ async function handleNextBattle(db, user) {
 
   return responseJson({
     dataset: versionDto(version),
-    progress: { current: Number(progress?.completed || 0) + 1, total: versionGoal(version) },
+    progress: { current: Number(progress?.completed || 0) + 1, total },
     battle: {
       sampleToken: token,
       query: sample.query,
@@ -367,8 +377,10 @@ async function handleVote(request, db, user) {
   if (existing) return responseError("这道题已经投过了。", 409, "duplicate_vote");
 
   const canonicalWinner = remapDisplayedVote(body.winner, Boolean(token.swapped));
-  const previous = await db.prepare("SELECT completed, streak, last_active FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
+  const previous = await db.prepare("SELECT completed, goal, streak, last_active FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
     .bind(token.dataset_version_id, user.id).first();
+  const version = await db.prepare("SELECT * FROM dataset_versions WHERE id = ?").bind(token.dataset_version_id).first();
+  const total = versionGoal(version, previous?.goal);
   const today = todayKey();
   const streak = nextStreak(previous, today);
   const completed = Number(previous?.completed || 0) + 1;
@@ -383,26 +395,26 @@ async function handleVote(request, db, user) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`)
         .bind(voteId, token.dataset_version_id, token.sample_id, user.id, canonicalWinner, JSON.stringify(reasonTags), token.swapped ? 1 : 0, Number(body.dwellMs || 0), body.contextOpened ? 1 : 0, createdAt),
       db.prepare("UPDATE battle_tokens SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL").bind(createdAt, token.id),
-      db.prepare(`INSERT INTO user_progress (dataset_version_id, rater_id, completed, streak, last_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+      db.prepare(`INSERT INTO user_progress (dataset_version_id, rater_id, completed, goal, streak, last_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(dataset_version_id, rater_id) DO UPDATE SET
           completed = excluded.completed,
+          goal = COALESCE(user_progress.goal, excluded.goal),
           streak = excluded.streak,
           last_active = excluded.last_active,
           updated_at = excluded.updated_at`)
-        .bind(token.dataset_version_id, user.id, completed, streak, today, createdAt)
+        .bind(token.dataset_version_id, user.id, completed, total, streak, today, createdAt)
     ]);
   } catch (error) {
     if (/unique/i.test(String(error?.message || error))) return responseError("这道题已经投过了。", 409, "duplicate_vote");
     throw error;
   }
 
-  const version = await db.prepare("SELECT * FROM dataset_versions WHERE id = ?").bind(token.dataset_version_id).first();
   const companion = await upsertVoteGrowth(db, user, version, voteId, reasonTags);
   return responseJson({
     voteId,
     reference: displayReference(token.human_winner, Boolean(token.swapped)),
-    progress: { completed: Math.min(completed, versionGoal(version)), total: versionGoal(version), streak },
+    progress: { completed: Math.min(completed, total), total, goal: total, streak },
     companion
   }, 201);
 }
@@ -412,6 +424,12 @@ async function handleVoteUpdate(request, db, user, voteId) {
   if (body.winner === undefined && body.reasonTags === undefined) return responseError("没有需要修改的内容。", 422, "empty_update");
   const vote = await db.prepare("SELECT * FROM votes WHERE id = ? AND rater_id = ?").bind(voteId, user.id).first();
   if (!vote) return responseError("没有找到这张票。", 404, "vote_not_found");
+  const companion = await getCompanion(db, user.id);
+  const lockedSeason = companion
+    ? await db.prepare("SELECT revealed_at FROM companion_seasons WHERE companion_id = ? AND dataset_version_id = ?")
+      .bind(companion.id, vote.dataset_version_id).first()
+    : null;
+  if (lockedSeason?.revealed_at) return responseError("这本书已经装订，答案只能阅读不能修改。", 409, "season_locked");
   let canonicalWinner = vote.winner;
   if (body.winner !== undefined) {
     if (!["A", "B", "tie_good", "tie_bad"].includes(body.winner)) return responseError("投票选项不在允许范围内。", 422, "invalid_vote");
@@ -427,13 +445,13 @@ async function handleVoteUpdate(request, db, user, voteId) {
   await db.prepare("UPDATE votes SET winner = ?, reason_tags_json = ?, updated_at = ? WHERE id = ? AND rater_id = ?")
     .bind(canonicalWinner, JSON.stringify(tags), updatedAt, voteId, user.id).run();
   const version = await db.prepare("SELECT * FROM dataset_versions WHERE id = ?").bind(vote.dataset_version_id).first();
-  const companion = await upsertVoteGrowth(db, user, version, voteId, tags);
+  const growthCompanion = await upsertVoteGrowth(db, user, version, voteId, tags);
   return responseJson({
     voteId,
     winner: remapDisplayedVote(canonicalWinner, Boolean(vote.display_swapped)),
     reasonTags: tags,
     updatedAt,
-    companion
+    companion: growthCompanion
   });
 }
 
@@ -441,6 +459,12 @@ async function handleCompanionBirth(request, db, user) {
   const body = await readBodyJson(request);
   const genome = String(body.genome || "");
   if (!GENOMES[genome]) return responseError("请选择一种出生基因。", 422, "invalid_genome");
+  const version = await activeVersion(db);
+  const requestedGoal = normalizeSessionGoal(body.goal, Number(version?.sample_count || 0)) || versionGoal(version);
+  const existingProgress = version
+    ? await db.prepare("SELECT completed, goal, streak, last_active FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?").bind(version.id, user.id).first()
+    : null;
+  if (existingProgress?.goal && Number(existingProgress.goal) !== requestedGoal) return responseError("本轮题数已经确定，请先重置当前体验。", 409, "goal_locked");
   const existing = await getCompanion(db, user.id);
   if (existing && existing.genome !== genome) return responseError("出生基因已经确定。", 409, "genome_locked");
   if (!existing) {
@@ -450,17 +474,26 @@ async function handleCompanionBirth(request, db, user) {
       VALUES (?, ?, ?, 0, ?, ?)`)
       .bind(id, user.id, genome, createdAt, createdAt).run();
   }
-  const version = await activeVersion(db);
   const companion = await getCompanion(db, user.id);
-  if (version) await ensureCompanionSeason(db, companion, version);
+  if (version) {
+    await ensureCompanionSeason(db, companion, version);
+    const createdAt = nowIso();
+    await db.prepare(`INSERT INTO user_progress (dataset_version_id, rater_id, completed, goal, streak, last_active, updated_at)
+      VALUES (?, ?, 0, ?, 0, NULL, ?)
+      ON CONFLICT(dataset_version_id, rater_id) DO UPDATE SET goal = COALESCE(user_progress.goal, excluded.goal), updated_at = excluded.updated_at`)
+      .bind(version.id, user.id, requestedGoal, createdAt).run();
+  }
   return responseJson({ companion: await companionSnapshot(db, user, version) }, existing ? 200 : 201);
 }
 
 async function handleCompanionReflection(request, db, user, env) {
-  const parsed = validateReflectionInput(await readBodyJson(request));
-  if (!parsed.ok) return responseError(parsed.message, 422, "invalid_reflection");
   const version = await activeVersion(db);
   if (!version) return responseError("现在没有可以成长的题库。", 409, "no_active_dataset");
+  const progress = await db.prepare("SELECT completed, goal FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
+    .bind(version.id, user.id).first();
+  const goal = versionGoal(version, progress?.goal);
+  const parsed = validateReflectionInput(await readBodyJson(request), goal);
+  if (!parsed.ok) return responseError(parsed.message, 422, "invalid_reflection");
   const companion = await getCompanion(db, user.id);
   if (!companion) return responseError("先选择聊灵的出生基因。", 409, "companion_not_born");
   const season = await ensureCompanionSeason(db, companion, version);
@@ -468,17 +501,15 @@ async function handleCompanionReflection(request, db, user, env) {
   const duplicate = await db.prepare("SELECT id FROM companion_events WHERE season_id = ? AND source_type = 'reflection' AND source_id = ?")
     .bind(season.id, sourceId).first();
   if (duplicate) return responseJson({ companion: await companionSnapshot(db, user, version, false), alreadySubmitted: true });
-  const progress = await db.prepare("SELECT completed FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
-    .bind(version.id, user.id).first();
   const events = await seasonEventRows(db, season.id);
   const reflected = events.filter((event) => event.source_type === "reflection").map((event) => Number(event.milestone));
-  const pending = pendingMilestone(Math.min(versionGoal(version), Number(progress?.completed || 0)), reflected);
+  const pending = pendingMilestone(Math.min(goal, Number(progress?.completed || 0)), reflected, goal);
   if (pending !== parsed.milestone) return responseError("这个成长阶段还没到，或者已经完成。", 409, "milestone_not_due");
 
   let analysis;
   let metadata;
   if (parsed.text) {
-    metadata = await analyzeReflection({ text: parsed.text, milestone: parsed.milestone, genome: companion.genome }, env);
+    metadata = await analyzeReflection({ text: parsed.text, milestone: parsed.milestone, goal, genome: companion.genome }, env);
     analysis = metadata.analysis;
   } else {
     analysis = { empathy: 0, exploration: 0, discernment: 0, toneLabels: [], companionReply: "留白也被我记住了。我们继续往前走。", memorySummary: "你为这一刻保留了一点安静", confidence: 1 };
@@ -500,6 +531,68 @@ async function handleCompanionReflection(request, db, user, env) {
   }
   await recomputeSeason(db, companion, season, user.id);
   return responseJson({ companion: await companionSnapshot(db, user, version, false), reply: analysis.companionReply }, 201);
+}
+
+async function handleCompanionFinalize(db, user) {
+  const version = await activeVersion(db);
+  if (!version) return responseError("现在没有可以装订的题库。", 409, "no_active_dataset");
+  const companion = await getCompanion(db, user.id);
+  if (!companion) return responseError("先选择聊灵的出生基因。", 409, "companion_not_born");
+  const season = await ensureCompanionSeason(db, companion, version);
+  const progress = await db.prepare("SELECT completed, goal FROM user_progress WHERE dataset_version_id = ? AND rater_id = ?")
+    .bind(version.id, user.id).first();
+  const goal = versionGoal(version, progress?.goal);
+  const events = await seasonEventRows(db, season.id);
+  const reflected = events.filter((event) => event.source_type === "reflection").map((event) => Number(event.milestone));
+  const completed = Math.min(goal, Number(progress?.completed || 0));
+  if (completed < goal || pendingMilestone(completed, reflected, goal) !== null) return responseError("请先完成全部书页和成长章节。", 409, "not_ready_to_finalize");
+  if (!season.revealed_at) {
+    const scores = events.reduce((total, event) => ({
+      empathy: total.empathy + Number(event.empathy_delta || 0),
+      exploration: total.exploration + Number(event.exploration_delta || 0),
+      discernment: total.discernment + Number(event.discernment_delta || 0)
+    }), { empathy: 0, exploration: 0, discernment: 0 });
+    const species = speciesForScores(scores, companion.genome);
+    const revealedAt = nowIso();
+    await db.prepare("UPDATE companion_seasons SET stage = 'revealed', species = ?, revealed_at = ?, updated_at = ? WHERE id = ?")
+      .bind(species.id, revealedAt, revealedAt, season.id).run();
+    if (season.role === "main") await db.prepare("UPDATE companions SET main_species = ?, updated_at = ? WHERE id = ?")
+      .bind(species.id, revealedAt, companion.id).run();
+    else await db.prepare("UPDATE companions SET lineage_count = lineage_count + 1, updated_at = ? WHERE id = ?")
+      .bind(revealedAt, companion.id).run();
+  }
+  return responseJson({ companion: await companionSnapshot(db, user, version, false), finalized: true });
+}
+
+async function handleCompanionReview(db, user) {
+  const version = await activeVersion(db);
+  if (!version) return responseJson({ pages: [] });
+  const rows = await all(db.prepare(`SELECT v.id AS vote_id, v.winner, v.reason_tags_json, v.display_swapped,
+      s.id AS sample_id, s.query, s.context_json, s.response_a, s.response_b, s.dimension, s.difficulty, s.risk
+      FROM votes v JOIN samples s ON s.id = v.sample_id
+      WHERE v.dataset_version_id = ? AND v.rater_id = ? ORDER BY v.created_at, v.id`).bind(version.id, user.id));
+  return responseJson({ pages: rows.map((row) => {
+    const swapped = Boolean(row.display_swapped);
+    return {
+      voteId: row.vote_id,
+      winner: remapDisplayedVote(row.winner, swapped),
+      reasons: parseStoredJson(row.reason_tags_json, []),
+      reference: null,
+      payload: {
+        dataset: versionDto(version),
+        battle: {
+          sampleToken: null,
+          query: row.query,
+          context: parseStoredJson(row.context_json, []),
+          responseA: { text: swapped ? row.response_b : row.response_a },
+          responseB: { text: swapped ? row.response_a : row.response_b },
+          dimension: row.dimension || null,
+          difficulty: row.difficulty || null,
+          risk: row.risk || null
+        }
+      }
+    };
+  }) });
 }
 
 async function handleResults(db, url) {
@@ -723,6 +816,8 @@ async function handleApi(request, env, url) {
   if (method === "GET" && path === "/api/companion") return responseJson({ companion: await companionSnapshot(db, user, await activeVersion(db)) });
   if (method === "POST" && path === "/api/companion/birth") return handleCompanionBirth(request, db, user);
   if (method === "POST" && path === "/api/companion/reflections") return handleCompanionReflection(request, db, user, env);
+  if (method === "POST" && path === "/api/companion/finalize") return handleCompanionFinalize(db, user);
+  if (method === "GET" && path === "/api/companion/review") return handleCompanionReview(db, user);
   if (method === "GET" && path === "/api/battles/next") return handleNextBattle(db, user);
   if (method === "POST" && path === "/api/votes") return handleVote(request, db, user);
   const voteMatch = path.match(/^\/api\/votes\/([^/]+)$/);

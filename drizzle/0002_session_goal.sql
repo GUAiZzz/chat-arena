@@ -1,0 +1,3 @@
+ALTER TABLE user_progress ADD COLUMN goal INTEGER NOT NULL DEFAULT 9;
+
+PRAGMA optimize;

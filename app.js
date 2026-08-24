@@ -10,7 +10,7 @@ import {
 import { REASON_TAGS } from "./shared/arena-utils.js";
 import { requestJson as api } from "./ui/api-client.js";
 import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js";
-import { applyVoteSelection, referenceCopy, renderReasonTagButtons } from "./ui/arena.js";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js";
 import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js";
 import { freshUploadState, state } from "./ui/state.js";
 
@@ -54,7 +54,7 @@ function currentTimelineEntry() {
 }
 
 function updateBattleNavigation() {
-  const local = state.session?.runtime === "local";
+  const local = ["local", "static"].includes(state.session?.runtime);
   const navigation = $("#battleNavigation");
   navigation.hidden = !local;
   if (!local) return;
@@ -73,11 +73,26 @@ function updateEmber() {
 function updateCompanionSnapshot(snapshot) {
   if (!snapshot || !state.session) return;
   state.session.companion = snapshot;
+  const resultsNav = $('.nav-item[data-view="results"]');
+  if (resultsNav) resultsNav.hidden = !snapshot?.season?.revealed;
   updateEmber();
+}
+
+function animatePageTurn() {
+  const page = $("#battleShell");
+  if (!page || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  page.classList.remove("is-page-turning");
+  void page.offsetWidth;
+  page.classList.add("is-page-turning");
+  window.setTimeout(() => page.classList.remove("is-page-turning"), 560);
 }
 
 function showView(view) {
   if (view === "admin" && !state.session?.isAdmin) view = "battle";
+  if (view === "results" && !state.session?.companion?.season?.revealed) {
+    showToast("先完成整本书并确认装订，结果页才会打开。");
+    view = "battle";
+  }
   state.activeView = view;
   $$('[data-view-panel]').forEach((panel) => {
     const active = panel.dataset.viewPanel === view;
@@ -110,6 +125,8 @@ function renderSession() {
     ? "投票、成长与题库只保存在当前浏览器；清除网站数据后会重置，不会上传到服务器。"
     : "当前使用真实 Case；默认采用可见的演示分析。投票、成长和新上传题库会在关闭服务后清空。";
   $("#adminNav").hidden = !session.isAdmin;
+  const resultsNav = $('.nav-item[data-view="results"]');
+  if (resultsNav) resultsNav.hidden = !session.companion?.season?.revealed;
   $("#emptyAdminButton").hidden = !session.isAdmin;
 
   const version = session.activeVersion;
@@ -126,7 +143,14 @@ function renderSession() {
 function updateProgress(progress) {
   const completed = Number(progress?.completed || 0);
   const total = Number(progress?.total || 0);
+  const goal = total || 9;
   $("#battleProgressText").textContent = `${completed} / ${total}`;
+  $("#battleKicker").textContent = `CHAPTER 01 · PAGE 01—${String(goal).padStart(2, "0")}`;
+  const currentPage = state.timelineAtEnd
+    ? Math.max(1, goal || 1)
+    : Math.min(goal || 1, Math.max(1, state.timelineIndex + 1));
+  const pageNumber = $("#bookPageNumber");
+  if (pageNumber) pageNumber.textContent = `PAGE ${String(currentPage).padStart(2, "0")}`;
   const track = $("#battleProgressTrack");
   track.setAttribute("aria-valuemax", String(total));
   track.setAttribute("aria-valuenow", String(completed));
@@ -139,11 +163,22 @@ async function loadSession() {
   renderSession();
 }
 
+async function loadReviewTimeline() {
+  const payload = await api("/api/companion/review");
+  const pages = Array.isArray(payload.pages) ? payload.pages : [];
+  if (!pages.length) return;
+  state.timeline = pages;
+  state.timelineIndex = pages.length - 1;
+  state.timelineAtEnd = false;
+}
+
 function renderEmptyBattle(reason) {
   $("#battleShell").hidden = true;
   const empty = $("#battleEmpty");
   empty.hidden = false;
   const button = $("#emptyAdminButton");
+  const reviewButton = $("#reviewBookButton");
+  reviewButton.hidden = true;
   if (reason === "complete") {
     state.timelineAtEnd = true;
     state.timelineIndex = state.timeline.length;
@@ -152,6 +187,13 @@ function renderEmptyBattle(reason) {
     button.hidden = false;
     button.textContent = "看结果";
     button.dataset.view = "results";
+  } else if (reason === "ready_to_reveal") {
+    state.timelineAtEnd = true;
+    state.timelineIndex = state.timeline.length;
+    $("#battleEmptyTitle").textContent = "最后一页已经写好。";
+    $("#battleEmptyCopy").textContent = "先校对整本书，确认装订后才会揭晓最终聊灵。";
+    button.hidden = true;
+    reviewButton.hidden = false;
   } else {
     $("#battleEmptyTitle").textContent = "现在没有可评测的题。";
     $("#battleEmptyCopy").textContent = "请让管理员先发布一版题库。";
@@ -160,6 +202,83 @@ function renderEmptyBattle(reason) {
     button.dataset.view = "admin";
   }
   updateBattleNavigation();
+}
+
+function renderContents() {
+  const root = $("#contentsList");
+  if (!root) return;
+  root.replaceChildren();
+  const total = Number(state.session?.progress?.total || state.timeline.length || 0);
+  if (!state.timeline.length) {
+    root.innerHTML = '<p class="contents-empty">还没有写下第一张票。翻开第一题，目录会在这里出现。</p>';
+    return;
+  }
+  state.timeline.forEach((entry, index) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "contents-item";
+    const label = entry.winner ? ({ A: "A", B: "B", tie_good: "都挺好", tie_bad: "都不行" }[entry.winner] || "已选择") : "未选择";
+    item.innerHTML = `<span class="contents-page">${String(index + 1).padStart(2, "0")}</span><span><b>第 ${index + 1} 页</b><small>${escapeHtml(entry.payload?.battle?.query || "匿名对话")}</small></span><em>${escapeHtml(label)}</em>`;
+    item.disabled = !entry.winner;
+    item.addEventListener("click", () => {
+      state.timelineAtEnd = false;
+      state.timelineIndex = index;
+      renderTimelineEntry();
+      $("#contentsDialog").close();
+      $("#battleShell").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    root.append(item);
+  });
+  if (total > state.timeline.length) {
+    const note = document.createElement("p");
+    note.className = "contents-empty";
+    note.textContent = `还剩 ${total - state.timeline.length} 页，完成后会继续写入目录。`;
+    root.append(note);
+  }
+}
+
+function openContents() {
+  renderContents();
+  $("#contentsDialog").showModal();
+}
+
+function openBookReview() {
+  const summary = $("#reviewSummary");
+  const total = Number(state.session?.progress?.total || 0);
+  const completed = Number(state.session?.progress?.completed || 0);
+  const reflections = state.session?.companion?.season?.traces?.length || 0;
+  summary.replaceChildren();
+  [
+    ["书页", `${completed} / ${total}`, completed >= total ? "已完成" : "还需要继续阅读"],
+    ["成长章节", `${reflections} / 3`, reflections >= 3 ? "已完成" : "可以跳过，但还未全部写下"],
+    ["揭晓", state.session?.companion?.season?.revealed ? "已揭晓" : "装订后开启", state.session?.companion?.season?.revealed ? "已锁定" : "等待确认"]
+  ].forEach(([label, value, copy]) => {
+    const item = document.createElement("div");
+    item.className = "review-row";
+    item.innerHTML = `<span><small>${label}</small><b>${value}</b></span><em>${copy}</em>`;
+    summary.append(item);
+  });
+  $("#reviewError").hidden = true;
+  $("#finalizeBook").disabled = !state.session?.companion?.season?.canFinalize;
+  $("#reviewDialog").showModal();
+}
+
+async function finalizeBook() {
+  const button = $("#finalizeBook");
+  button.disabled = true;
+  $("#reviewError").hidden = true;
+  try {
+    const payload = await api("/api/companion/finalize", { method: "POST" });
+    updateCompanionSnapshot(payload.companion);
+    $("#reviewDialog").close();
+    renderEmptyBattle("complete");
+    openReveal(payload.companion);
+  } catch (error) {
+    $("#reviewError").textContent = error.message;
+    $("#reviewError").hidden = false;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function resetBattleUi() {
@@ -171,10 +290,11 @@ function resetBattleUi() {
   $("#contextToggle").setAttribute("aria-expanded", "false");
   $("#contextIcon").textContent = "＋";
   $("#voteOutcome").hidden = true;
+  $("#referenceText").textContent = "这页已经记下。参考与统计会在整本书装订后打开。";
   $("#editVote").disabled = false;
   $("#editVote").textContent = "修改选择";
   $("#nextBattle").disabled = false;
-  $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
+  $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
   $("#voteTitle").textContent = "如果是你，你会接着跟谁聊？";
   $$('.vote-button').forEach((button) => { button.disabled = false; button.classList.remove("is-selected"); });
   $$('.response-card').forEach((card) => card.classList.remove("is-selected", "is-muted"));
@@ -213,7 +333,7 @@ function renderBattle(payload, entry = null) {
     state.voteId = entry.voteId;
     state.selectedReasons = [...entry.reasons];
     applyVoteSelection(entry.winner, true);
-    $("#referenceText").textContent = referenceCopy(entry.reference);
+    $("#referenceText").textContent = "这页已经记下。参考与统计会在整本书装订后打开。";
     renderReasonTags();
     $("#voteOutcome").hidden = false;
   }
@@ -272,16 +392,22 @@ function previousBattle() {
 }
 
 function nextBattle() {
+  if (state.session?.companion?.season?.canFinalize) {
+    openBookReview();
+    return;
+  }
   if (state.session?.companion?.season?.pendingReflection) {
     openReflection(state.session.companion);
     return;
   }
   if (state.timelineIndex < state.timeline.length - 1) {
     state.timelineIndex += 1;
+    animatePageTurn();
     renderTimelineEntry();
     $("#battleShell").scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
+  animatePageTurn();
   loadBattle();
 }
 
@@ -349,7 +475,7 @@ async function submitVote(winner) {
       entry.reference = result.reference ?? entry.reference;
       entry.reasons = [...state.selectedReasons];
     }
-    $("#referenceText").textContent = referenceCopy(entry?.reference ?? result.reference);
+    $("#referenceText").textContent = "这页已经记下。参考与统计会在整本书装订后打开。";
     renderReasonTags();
     $("#voteOutcome").hidden = false;
     $("#editVote").disabled = false;
@@ -364,7 +490,7 @@ async function submitVote(winner) {
     if (result.companion?.season?.pendingReflection) {
       $("#nextBattle").textContent = `完成${result.companion.season.pendingReflection.stageName}对话 →`;
     } else {
-      $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
+      $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
     }
     if (editing) showToast("选择已更新，结果中的原票已经被覆盖。");
     $("#nextBattle").focus();
@@ -774,21 +900,29 @@ function bindEvents() {
     showToast,
     onBirth: (snapshot) => {
       updateCompanionSnapshot(snapshot);
+      if (snapshot?.season && state.session) {
+        state.session.progress = { ...state.session.progress, completed: Number(snapshot.season.completed || 0), total: Number(snapshot.season.total || 9), goal: Number(snapshot.season.goal || snapshot.season.total || 9), remaining: Number(snapshot.season.remaining || 0) };
+        updateProgress(state.session.progress);
+      }
       leaveWelcome();
       if (!state.battle) loadBattle();
     },
     onReflection: (snapshot) => {
       updateCompanionSnapshot(snapshot);
-      if (snapshot?.season?.revealed) {
+      if (snapshot?.season?.canFinalize) {
+        renderEmptyBattle("ready_to_reveal");
+        openBookReview();
+      } else if (snapshot?.season?.revealed) {
         renderEmptyBattle("complete");
         openReveal(snapshot);
       } else {
-        $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
+        $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
         loadBattle();
       }
     },
     onReset: () => window.location.reload(),
-    onResults: () => showView("results")
+    onResults: () => showView("results"),
+    onGoalChange: (goal) => { $("#welcomeGoalFact").textContent = String(goal).padStart(2, "0"); }
   });
   document.addEventListener("click", (event) => {
     const viewButton = event.target.closest("[data-view]");
@@ -797,6 +931,11 @@ function bindEvents() {
   $$('.vote-button').forEach((button) => button.addEventListener("click", () => submitVote(button.dataset.vote)));
   $("#nextBattle").addEventListener("click", nextBattle);
   $("#previousBattle").addEventListener("click", previousBattle);
+  $("#openContents").addEventListener("click", openContents);
+  $("#closeContents").addEventListener("click", () => $("#contentsDialog").close());
+  $("#reviewBookButton").addEventListener("click", openBookReview);
+  $("#closeReview").addEventListener("click", () => $("#reviewDialog").close());
+  $("#finalizeBook").addEventListener("click", finalizeBook);
   $("#editVote").addEventListener("click", beginVoteEdit);
   $("#refreshResults").addEventListener("click", loadResults);
   $("#contextToggle").addEventListener("click", () => {
@@ -860,6 +999,7 @@ async function boot() {
     if (state.session?.companion?.born) {
       $("#welcomeScreen").hidden = true;
       document.body.classList.remove("is-welcome");
+      await loadReviewTimeline();
       await loadBattle();
     }
   } catch (error) {
