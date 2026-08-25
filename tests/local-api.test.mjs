@@ -26,14 +26,14 @@ async function normalizedWorkbook() {
   return { file: Buffer.from("self-contained Chat Arena fixture"), normalized };
 }
 
-test("local demo starts offline with all nine supplied cases and admin access", async () => {
+test("local demo starts offline with all twelve supplied cases and admin access", async () => {
   const session = await request(createLocalApi(), "/api/session");
   assert.equal(session.status, 200);
   assert.equal(session.body.runtime, "local");
   assert.equal(session.body.isAdmin, true);
-  assert.equal(session.body.activeVersion.sampleCount, 9);
+  assert.equal(session.body.activeVersion.sampleCount, 12);
   assert.equal(session.body.activeVersion.sourceFilename, "chat-arena-demo.xlsx");
-  assert.equal(session.body.activeVersion.summary.total_rows, 10);
+  assert.equal(session.body.activeVersion.summary.total_rows, 13);
   assert.equal(session.body.activeVersion.summary.excluded_duplicate_rows, 1);
 });
 
@@ -53,6 +53,7 @@ test("a companion grows at 3/6/9, reveals once, and never returns reflection sou
   assert.equal(born.body.companion.companion.genome, "alien");
 
   let latest;
+  let firstVoteId;
   for (let index = 1; index <= 9; index += 1) {
     const next = await request(api, "/api/battles/next");
     assert.equal(next.status, 200);
@@ -65,6 +66,7 @@ test("a companion grows at 3/6/9, reveals once, and never returns reflection sou
       contextOpened: false
     });
     latest = vote.body.companion;
+    firstVoteId ||= vote.body.voteId;
     if ([3, 6, 9].includes(index)) {
       assert.equal(latest.season.pendingReflection.milestone, index);
       const sourceText = `只用于第${index}阶段的秘密原句`;
@@ -78,7 +80,16 @@ test("a companion grows at 3/6/9, reveals once, and never returns reflection sou
     }
   }
 
+  assert.equal(latest.season.revealed, false);
+  assert.equal(latest.season.canFinalize, true);
+  const finalized = await request(api, "/api/companion/finalize", "POST");
+  assert.equal(finalized.status, 200);
+  latest = finalized.body.companion;
   assert.equal(latest.season.revealed, true);
+  const review = await request(api, "/api/companion/review");
+  assert.equal(review.body.pages.length, 9);
+  const locked = await request(api, `/api/votes/${firstVoteId}`, "PATCH", { reasonTags: ["更懂我"] });
+  assert.equal(locked.status, 409);
   assert.ok(latest.season.species.name);
   assert.equal(latest.season.traces.length, 3);
   assert.equal((await request(api, "/api/battles/next")).body.reason, "complete");
@@ -120,14 +131,14 @@ test("the supplied XLSX completes draft, source upload, batch validation, publis
   assert.equal((await request(api, `/api/admin/datasets/${versionId}/samples/batch`, "POST", { samples: normalized.samples })).status, 201);
   const checked = await request(api, `/api/admin/datasets/${versionId}/validate`, "POST");
   assert.equal(checked.body.valid, true);
-  assert.equal(checked.body.summary.usable_rows, 9);
+  assert.equal(checked.body.summary.usable_rows, 12);
   assert.equal(checked.body.summary.excluded_duplicate_rows, 1);
-  assert.equal(checked.body.summary.missing_model_ids, 9);
+  assert.equal(checked.body.summary.missing_model_ids, 12);
   assert.equal((await request(api, `/api/admin/datasets/${versionId}/publish`, "POST")).status, 200);
 
   const session = await request(api, "/api/session");
   assert.equal(session.body.activeVersion.id, versionId);
-  assert.equal(session.body.activeVersion.sampleCount, 9);
+  assert.equal(session.body.activeVersion.sampleCount, 12);
   assert.equal(session.body.progress.completed, 0);
   assert.equal((await request(api, "/api/results")).body.totalVotes, 0);
   assert.equal((await request(api, "/api/results?version=local-demo-v1")).body.totalVotes, 1);

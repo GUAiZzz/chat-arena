@@ -25,6 +25,8 @@ export const state = {
   timeline: [],
   timelineIndex: -1,
   timelineAtEnd: false,
+  reviewOpen: false,
+  contentsOpen: false,
   activeVersionId: null,
   activeView: "battle",
   upload: freshUploadState(),

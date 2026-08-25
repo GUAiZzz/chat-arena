@@ -9,12 +9,36 @@ export const GENOMES = Object.freeze({
 export const AXES = Object.freeze(["empathy", "exploration", "discernment"]);
 export const TONE_LABELS = Object.freeze(["温柔", "直接", "好奇", "克制", "幽默", "理性"]);
 export const PROMPT_VERSION = "liaoling-reflection-v1";
+export const SESSION_GOALS = Object.freeze([3, 6, 9, 12]);
+
+const MILESTONE_TEMPLATES = Object.freeze([
+  { stage: "awakening", stageName: "初醒", prompt: "如果我今天没接住你，你会怎么对我说？" },
+  { stage: "forming", stageName: "成形", prompt: "一句话走偏时，你会先在意什么？" },
+  { stage: "revealed", stageName: "定型", prompt: "如果我们只剩最后一句，你想留给我什么？" }
+]);
 
 export const MILESTONES = Object.freeze({
-  3: { milestone: 3, stage: "awakening", stageName: "初醒", prompt: "如果我今天没接住你，你会怎么对我说？" },
-  6: { milestone: 6, stage: "forming", stageName: "成形", prompt: "一句话走偏时，你会先在意什么？" },
-  9: { milestone: 9, stage: "revealed", stageName: "定型", prompt: "如果我们只剩最后一句，你想留给我什么？" }
+  3: { milestone: 3, ...MILESTONE_TEMPLATES[0] },
+  6: { milestone: 6, ...MILESTONE_TEMPLATES[1] },
+  9: { milestone: 9, ...MILESTONE_TEMPLATES[2] }
 });
+
+export function normalizeSessionGoal(value, available = 12) {
+  const goal = Number(value);
+  if (!SESSION_GOALS.includes(goal)) return null;
+  return goal <= Number(available || 0) ? goal : null;
+}
+
+export function milestonesForGoal(goal = 9) {
+  const normalized = SESSION_GOALS.includes(Number(goal)) ? Number(goal) : 9;
+  return SESSION_GOALS.includes(normalized) ? [normalized / 3, normalized * 2 / 3, normalized] : [3, 6, 9];
+}
+
+export function milestoneDefinition(goal = 9, milestone) {
+  const index = milestonesForGoal(goal).indexOf(Number(milestone));
+  if (index < 0) return null;
+  return { milestone: Number(milestone), ...MILESTONE_TEMPLATES[index] };
+}
 
 export const SPECIES = Object.freeze({
   sprout_pop: { id: "sprout-pop", name: "芽啵", tagline: "先把情绪接进来，再让一句话慢慢发芽。", sprite: "ya-bo.png" },
@@ -77,27 +101,30 @@ export function speciesForScores(scores, genome = "light") {
   return values.exploration > values.empathy ? SPECIES.grit_tail : SPECIES.sprout_pop;
 }
 
-export function stageForProgress(completed, reflected = []) {
+export function stageForProgress(completed, reflected = [], goal = 9, finalized = false) {
   const done = new Set(reflected.map(Number));
-  if (Number(completed) >= 9 && done.has(9)) return { id: "revealed", name: "定型", level: 4 };
-  if (Number(completed) >= 6 && done.has(6)) return { id: "forming", name: "成形", level: 3 };
-  if (Number(completed) >= 3 && done.has(3)) return { id: "awakening", name: "初醒", level: 2 };
+  const milestones = milestonesForGoal(goal);
+  if (Number(completed) >= milestones[2] && done.has(milestones[2])) return finalized
+    ? { id: "revealed", name: "定型", level: 4 }
+    : { id: "ready_to_reveal", name: "待装订", level: 4 };
+  if (Number(completed) >= milestones[1] && done.has(milestones[1])) return { id: "forming", name: "成形", level: 3 };
+  if (Number(completed) >= milestones[0] && done.has(milestones[0])) return { id: "awakening", name: "初醒", level: 2 };
   return { id: "birth", name: "出生", level: 1 };
 }
 
-export function pendingMilestone(completed, reflected = []) {
+export function pendingMilestone(completed, reflected = [], goal = 9) {
   const done = new Set(reflected.map(Number));
-  return [3, 6, 9].find((milestone) => Number(completed) >= milestone && !done.has(milestone)) || null;
+  return milestonesForGoal(goal).find((milestone) => Number(completed) >= milestone && !done.has(milestone)) || null;
 }
 
-export function nextMilestone(completed) {
-  return [3, 6, 9].find((milestone) => Number(completed) < milestone) || null;
+export function nextMilestone(completed, goal = 9) {
+  return milestonesForGoal(goal).find((milestone) => Number(completed) < milestone) || null;
 }
 
-export function validateReflectionInput(value) {
+export function validateReflectionInput(value, goal = 9) {
   if (!isRecord(value)) return { ok: false, message: "成长回答格式不对。" };
   const milestone = Number(value.milestone);
-  if (!MILESTONES[milestone]) return { ok: false, message: "成长阶段不对。" };
+  if (!milestoneDefinition(goal, milestone)) return { ok: false, message: "成长阶段不对。" };
   if (typeof value.text !== "string") return { ok: false, message: "成长回答格式不对。" };
   const text = value.text.trim();
   if (text.length > 180) return { ok: false, message: "最多写 180 个字。" };

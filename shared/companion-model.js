@@ -1,4 +1,4 @@
-import { AXES, GENOMES, MILESTONES, PROMPT_VERSION, TONE_LABELS, demoAnalyzeReflection, validateModelAnalysis } from "./companion-growth.js";
+import { AXES, GENOMES, PROMPT_VERSION, TONE_LABELS, demoAnalyzeReflection, milestoneDefinition, validateModelAnalysis } from "./companion-growth.js";
 
 const analysisSchema = {
   type: "object",
@@ -15,8 +15,8 @@ const analysisSchema = {
   }
 };
 
-function promptFor({ text, milestone, genome }) {
-  const stage = MILESTONES[milestone];
+function promptFor({ text, milestone, genome, goal = 9 }) {
+  const stage = milestoneDefinition(goal, milestone) || milestoneDefinition(9, milestone);
   const genomeRow = GENOMES[genome] || GENOMES.light;
   return {
     system: `你是“聊灵”成长分析器。只分析用户这一次自愿写下的中文回答，不推断身份、心理疾病、政治、健康或其他敏感属性。三个分数必须是整数且总和为 100：empathy=共感，exploration=探索，discernment=分辨。回应温暖、克制、无评判。memorySummary 只能概括沟通偏好，不得复述原句。聊灵出生气质：${genomeRow.name}（${genomeRow.tone}）。`,

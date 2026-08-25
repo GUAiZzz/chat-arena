@@ -3,6 +3,9 @@ import test from "node:test";
 import {
   analysisToPoints,
   demoAnalyzeReflection,
+  milestoneDefinition,
+  milestonesForGoal,
+  normalizeSessionGoal,
   scoreReasonTags,
   speciesForScores,
   stageForProgress,
@@ -36,7 +39,20 @@ test("stages require their due reflection before the companion advances", () => 
   assert.equal(stageForProgress(3, []).id, "birth");
   assert.equal(stageForProgress(3, [3]).id, "awakening");
   assert.equal(stageForProgress(9, [3, 6]).id, "forming");
-  assert.equal(stageForProgress(9, [3, 6, 9]).id, "revealed");
+  assert.equal(stageForProgress(9, [3, 6, 9]).id, "ready_to_reveal");
+  assert.equal(stageForProgress(9, [3, 6, 9], 9, true).id, "revealed");
+});
+
+test("every supported session length maps to exactly three growth milestones", () => {
+  assert.deepEqual(milestonesForGoal(3), [1, 2, 3]);
+  assert.deepEqual(milestonesForGoal(6), [2, 4, 6]);
+  assert.deepEqual(milestonesForGoal(9), [3, 6, 9]);
+  assert.deepEqual(milestonesForGoal(12), [4, 8, 12]);
+  assert.equal(milestoneDefinition(12, 4).stageName, "初醒");
+  assert.equal(milestoneDefinition(12, 8).stageName, "成形");
+  assert.equal(milestoneDefinition(12, 12).stageName, "定型");
+  assert.equal(normalizeSessionGoal(12, 12), 12);
+  assert.equal(normalizeSessionGoal(12, 9), null);
 });
 
 test("structured analysis rejects invalid totals and demo fallback is stable", async () => {

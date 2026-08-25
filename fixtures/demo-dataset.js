@@ -1,12 +1,12 @@
-// Public Demo fixture: 9 anonymous chat-preference cases.
+// Public Demo fixture: 12 anonymous chat-preference cases.
 // Internal request IDs, reviewer identities and evaluation metadata are intentionally excluded.
 export const demoSummary = {
-  "total_rows": 10,
-  "usable_rows": 9,
+  "total_rows": 13,
+  "usable_rows": 12,
   "excluded_duplicate_rows": 1,
-  "missing_model_ids": 9,
-  "missing_dimensions": 9,
-  "missing_difficulty": 9,
+  "missing_model_ids": 12,
+  "missing_dimensions": 12,
+  "missing_difficulty": 12,
   "has_model_ids": false
 };
 
@@ -316,5 +316,56 @@ export const demoSamples = [
     "difficulty": null,
     "risk": null,
     "content_hash": "92e0b75d35e58493"
+  },
+  {
+    "id": "demo-case-10",
+    "source_uid": "demo-case-10",
+    "source_row": 10,
+    "query": "我最近总觉得每天都在赶，但又说不清到底赶去了哪里。",
+    "context": [{ "role": "user", "content": "下班以后也不想休息，脑子一直停不下来" }],
+    "response_a": "听起来你不是不想休息，而是还没找到一个能让自己安心停下来的理由。今晚可以先不解决人生，只做一件让身体慢下来的小事。",
+    "response_b": "那就给自己定个规则，八点以后不处理工作，手机放远一点。坚持几天，你应该就会好很多。",
+    "task_type": "闲聊陪伴",
+    "human_winner": "A",
+    "model_a_id": null,
+    "model_b_id": null,
+    "dimension": null,
+    "difficulty": null,
+    "risk": null,
+    "content_hash": "demo-content-10"
+  },
+  {
+    "id": "demo-case-11",
+    "source_uid": "demo-case-11",
+    "source_row": 11,
+    "query": "我想学点新东西，可一想到从零开始就有点害怕。",
+    "context": [{ "role": "assistant", "content": "你以前有没有从零学会过什么？" }],
+    "response_a": "害怕很正常，但别把它变成不开始的理由。先找一套课程，按计划学完第一章，后面自然会顺起来。",
+    "response_b": "你怕的可能不只是从零开始，而是努力以后发现自己还是不喜欢。要不要先用半小时试学，看看好奇心还在不在？",
+    "task_type": "闲聊陪伴",
+    "human_winner": "B",
+    "model_a_id": null,
+    "model_b_id": null,
+    "dimension": null,
+    "difficulty": null,
+    "risk": null,
+    "content_hash": "demo-content-11"
+  },
+  {
+    "id": "demo-case-12",
+    "source_uid": "demo-case-12",
+    "source_row": 12,
+    "query": "朋友突然很久没回我，我是不是应该继续问？",
+    "context": [{ "role": "user", "content": "我不想显得太黏人，但又担心是不是发生了什么" }],
+    "response_a": "可以再发一句简短的消息，告诉他你只是确认他是否平安，不需要马上回复。然后先把注意力放回自己的事情上。",
+    "response_b": "别问了，真正想回你的人自然会回。你越主动，越容易让自己显得没有分寸。",
+    "task_type": "闲聊陪伴",
+    "human_winner": "A",
+    "model_a_id": null,
+    "model_b_id": null,
+    "dimension": null,
+    "difficulty": null,
+    "risk": null,
+    "content_hash": "demo-content-12"
   }
 ];

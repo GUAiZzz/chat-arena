@@ -17,7 +17,7 @@ async function loadVendorXlsx() {
   return context.XLSX;
 }
 
-test("the supplied workbook maps automatically, detects its duplicate UID, and yields 9 unique samples", async () => {
+test("the supplied workbook maps automatically, detects its duplicate UID, and yields 12 unique samples", async () => {
   const XLSX = await loadVendorXlsx();
   const sourceRows = demoSamples.map((sample) => ({
     uid: sample.source_uid,
@@ -38,15 +38,15 @@ test("the supplied workbook maps automatically, detects its duplicate UID, and y
   const { mapping } = suggestMapping(headers);
   const result = normalizeRows(rows, mapping);
 
-  assert.equal(rows.length, 10);
+  assert.equal(rows.length, 13);
   assert.equal(result.errors.length, 0);
-  assert.equal(result.samples.length, 9);
+  assert.equal(result.samples.length, 12);
   assert.equal(result.duplicateGroups.length, 1);
   assert.equal(result.summary.excluded_duplicate_rows, 1);
-  assert.equal(result.summary.missing_model_ids, 9);
+  assert.equal(result.summary.missing_model_ids, 12);
   assert.equal(result.summary.has_model_ids, false);
   assert.ok(result.samples.every((sample) => sample.context.every((message) => message.role !== "system")));
-  assert.equal(demoSamples.length, 9);
+  assert.equal(demoSamples.length, 12);
   assert.deepEqual(demoSummary, result.summary);
   assert.deepEqual(demoSamples.map((sample) => sample.source_uid), result.samples.map((sample) => sample.source_uid));
   assert.deepEqual(demoSamples.map((sample) => sample.query), result.samples.map((sample) => sample.query));

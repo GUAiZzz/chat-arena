@@ -2,10 +2,11 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let latestSnapshot = null;
 
-function setSprite(element, species = null) {
+function setSprite(element, species = null, { hint = null } = {}) {
   if (!element) return;
-  const sprite = species?.sprite;
+  const sprite = species?.sprite || hint?.sprite;
   element.classList.toggle("is-unrevealed", !sprite);
+  element.classList.toggle("is-foreshadowed", Boolean(!species && hint?.sprite));
   element.style.setProperty("--companion-sprite", sprite ? `url("./assets/companions/${sprite}")` : "none");
   element.dataset.species = species?.id || "";
 }
@@ -14,6 +15,7 @@ function stageCopy(season) {
   if (!season) return { title: "等待与你相遇", message: "选好出生基因，它才会在 Chat Arena 醒来。" };
   if (season.revealed && season.species) return { title: season.species.name, message: season.species.tagline };
   if (season.stage === "forming") return { title: "轮廓正在成形", message: season.latestReply || "它开始认出你在一句话里珍惜的东西。" };
+  if (season.stage === "ready_to_reveal") return { title: "最后一页已经写好", message: "先校对整本书，再让它长成自己的最终形状。" };
   if (season.stage === "awakening") return { title: "它第一次睁开眼", message: season.latestReply || "有些偏好不必说破，也会慢慢长出形状。" };
   return { title: "一只正在孵化的聊灵", message: "每一次认真判断，都会让它长出一点自己的轮廓。" };
 }
@@ -46,6 +48,8 @@ export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
   $("#companionProgressTrack").setAttribute("aria-valuenow", String(season?.completed || 0));
   const next = season?.pendingReflection
     ? `一段成长对话正在等你`
+    : season?.canFinalize
+      ? "整本书已完成，等你确认装订"
     : season?.revealed
       ? `星谱里已有 ${Number(companion?.lineageCount || 0)} 个回声分身`
       : `再完成 ${Number(season?.remaining ?? 3)} 次判断，进入下一阶段`;
@@ -93,7 +97,7 @@ export function openReveal(snapshot) {
   return true;
 }
 
-export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset, onResults }) {
+export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset, onResults, onGoalChange }) {
   $$('input[name="genome"]').forEach((input) => input.addEventListener("change", () => {
     $$("[data-genome-card]").forEach((card) => {
       const selected = card.dataset.genomeCard === input.value;
@@ -101,13 +105,19 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
       card.querySelector("em").textContent = selected ? "已选择" : "选择";
     });
   }));
+  $$('input[name="sessionGoal"]').forEach((input) => input.addEventListener("change", () => {
+    $$('[data-goal-card], .goal-option').forEach((card) => card.classList.toggle("is-selected", card.querySelector('input[name="sessionGoal"]')?.checked));
+    $("#welcomeGoalFact").textContent = String(input.value).padStart(2, "0");
+    onGoalChange?.(Number(input.value));
+  }));
 
   $("#enterArena").addEventListener("click", async () => {
     const button = $("#enterArena");
     button.disabled = true;
     try {
       const genome = $('input[name="genome"]:checked')?.value || "light";
-      const payload = await api("/api/companion/birth", { method: "POST", body: JSON.stringify({ genome }) });
+      const goal = Number($('input[name="sessionGoal"]:checked')?.value || 9);
+      const payload = await api("/api/companion/birth", { method: "POST", body: JSON.stringify({ genome, goal }) });
       onBirth(payload.companion);
     } catch (error) {
       showToast(error.message);
