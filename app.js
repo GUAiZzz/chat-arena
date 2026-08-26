@@ -4,6 +4,7 @@ import {
   acceptedFile,
   normalizeRows,
   scoreSheet,
+  spreadsheetReadSource,
   suggestMapping,
   validateMapping
 } from "./shared/data-adapter.js";
@@ -661,7 +662,8 @@ async function handleFile(file) {
   if (!window.XLSX) return setInlineError($("#fileError"), "表格解析组件没有载入，请刷新页面后重试。" );
   try {
     const buffer = await file.arrayBuffer();
-    const workbook = window.XLSX.read(buffer, { type: "array", cellDates: false });
+    const source = spreadsheetReadSource(buffer, file.name);
+    const workbook = window.XLSX.read(source.data, { type: source.type, cellDates: false });
     const sheets = workbook.SheetNames.map((name) => sheetData(workbook, name)).sort((left, right) => right.score - left.score);
     if (!sheets.length) throw new Error("这个文件没有可用工作表。");
     state.upload = { ...freshUploadState(), file, buffer, sheets };

@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
-import { normalizeRows, scoreSheet, suggestMapping } from "../shared/data-adapter.js";
+import { normalizeRows, scoreSheet, spreadsheetReadSource, suggestMapping } from "../shared/data-adapter.js";
 import { aggregateVotes, chooseBalancedSample, remapDisplayedVote, shouldSwap, validateVotePayload } from "../shared/arena-utils.js";
 import { demoSamples, demoSummary } from "../fixtures/demo-dataset.js";
 
@@ -50,6 +50,17 @@ test("the supplied workbook maps automatically, detects its duplicate UID, and y
   assert.deepEqual(demoSummary, result.summary);
   assert.deepEqual(demoSamples.map((sample) => sample.source_uid), result.samples.map((sample) => sample.source_uid));
   assert.deepEqual(demoSamples.map((sample) => sample.query), result.samples.map((sample) => sample.query));
+});
+
+test("UTF-8 CSV keeps Chinese text intact", async () => {
+  const XLSX = await loadVendorXlsx();
+  const bytes = new TextEncoder().encode('"uid","query","model_a_resp","model_b_resp"\n"csv-001","中文问题","回复 A","回复 B"');
+  const source = spreadsheetReadSource(bytes.buffer, "fixture.csv");
+  assert.equal(source.type, "string");
+  const workbook = XLSX.read(source.data, { type: source.type });
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "", raw: true });
+  assert.equal(rows[0].query, "中文问题");
+  assert.equal(rows[0].model_a_resp, "回复 A");
 });
 
 test("aliases support Chinese headers and never infer missing dimensions or model ids", () => {
