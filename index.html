@@ -14,7 +14,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="__SITE_ORIGIN__/og.png" />
     <title>Chat Arena · 互动故事手册</title>
-    <link rel="stylesheet" href="./styles.css?v=3.1.4" />
+    <link rel="stylesheet" href="./styles.css?v=3.1.5" />
   </head>
   <body class="is-welcome" data-flow-state="COVER">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -30,7 +30,7 @@
           <small id="coverHint">匿名判断 · 三次成长 · 最后揭晓</small>
         </div>
         <button class="storybook-cover" type="button" id="coverObject" aria-label="打开今天的手册">
-          <img class="storybook-cover-art" src="./assets/storybook-cover-pixel-v1.png?v=3.1.4" alt="" width="1448" height="1086" decoding="sync" fetchpriority="high" />
+          <img class="storybook-cover-art" src="./assets/storybook-cover-pixel-v1.png?v=3.1.5" alt="" width="1448" height="1086" decoding="sync" fetchpriority="high" />
           <span class="cover-spine" aria-hidden="true"></span>
           <span class="cover-label"><b>CHAT<br />ARENA</b><i>一册关于<br />如何接住一句话的手册</i></span>
           <span class="cover-seed" aria-hidden="true"><i></i><b></b></span>
@@ -52,19 +52,19 @@
             <legend><span>出生基因</span><small id="genomeHint">三条血统，等价的相遇。</small></legend>
             <label class="genome-option is-selected" data-genome-card="light">
               <input type="radio" name="genome" value="light" checked />
-              <span class="genome-glyph genome-light" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-light" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.5" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>澄光</b><small>克制 · 通透 · 轻幻想</small></span>
               <em>已选择</em>
             </label>
             <label class="genome-option" data-genome-card="cloud">
               <input type="radio" name="genome" value="cloud" />
-              <span class="genome-glyph genome-cloud" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-cloud" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.5" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>绒云</b><small>柔软 · 治愈 · 萌宠感</small></span>
               <em>选择</em>
             </label>
             <label class="genome-option" data-genome-card="alien">
               <input type="radio" name="genome" value="alien" />
-              <span class="genome-glyph genome-alien" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-alien" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.5" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>异星</b><small>陌生 · 灵动 · 奇异生命</small></span>
               <em>选择</em>
             </label>
@@ -90,7 +90,7 @@
     <section class="closing-screen" id="closingScreen" hidden aria-labelledby="closingTitle">
       <div class="closing-stage">
         <button class="closing-cover" type="button" id="reopenBook" aria-label="重新打开这一册">
-          <img src="./assets/storybook-cover-pixel-v1.png?v=3.1.4" alt="" width="1448" height="1086" decoding="sync" />
+          <img src="./assets/storybook-cover-pixel-v1.png?v=3.1.5" alt="" width="1448" height="1086" decoding="sync" />
           <span class="cover-label"><b>CHAT<br />ARENA</b><i>这一册已经<br />装订完成</i></span>
           <span class="cover-stamp">VOL. 01<br /><b>BOUND</b></span>
         </button>
@@ -125,6 +125,21 @@
         <button class="nav-item" data-view="admin" id="adminNav" type="button" hidden>题库管理</button>
       </nav>
 
+      <details class="bookmark-menu" id="bookmarkMenu">
+        <summary aria-label="打开书签菜单"><span aria-hidden="true">▣</span> 书签 <i aria-hidden="true">⌄</i></summary>
+        <div class="bookmark-popover" role="group" aria-label="书册操作">
+          <p>THIS BOOK</p>
+          <button class="bookmark-menu-action" id="returnToCoverFromMenu" type="button">
+            <span aria-hidden="true">↩</span>
+            <span><b>回到书封</b><small>只回看封面，进度与聊灵都会保留</small></span>
+          </button>
+          <button class="bookmark-menu-action is-restart" id="restartBook" type="button">
+            <span aria-hidden="true">↺</span>
+            <span><b>重新开始这一册</b><small>重新选种子；当前本机进度会清空</small></span>
+          </button>
+        </div>
+      </details>
+
       <div class="user-chip" id="userChip" aria-label="当前用户">
         <span aria-hidden="true"></span>
         <div><b id="userName">正在确认身份</b><small id="userRole">—</small></div>
@@ -143,7 +158,7 @@
       </div>
 
       <button class="companion-capsule" id="companionCapsule" type="button" aria-label="查看当前聊灵成长状态">
-        <span class="companion-atlas companion-capsule-art" id="companionCapsuleArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
+        <span class="companion-atlas companion-capsule-art" id="companionCapsuleArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.5" alt="" width="1254" height="1254" decoding="sync" /></span>
         <span><b id="companionCapsuleName">出生 · 聊灵</b><small id="companionCapsuleMeta">再完成 3 次判断，进入下一阶段</small></span>
         <i aria-hidden="true">↗</i>
       </button>
@@ -218,7 +233,7 @@
               <div class="companion-card-top"><span id="companionGenome">澄光 · 页角</span><i id="analysisMode" hidden>演示分析</i></div>
               <div class="companion-art-wrap" aria-hidden="true">
                 <span class="companion-halo"></span>
-                <span class="companion-atlas companion-art" id="companionArt"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
+                <span class="companion-atlas companion-art" id="companionArt"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.5" alt="" width="1254" height="1254" decoding="sync" /></span>
               </div>
               <div class="companion-identity"><span><small id="companionRole">主伙伴</small><b id="companionTitle">一颗正在听的种子</b></span><em id="companionStage">出生</em></div>
               <p id="companionMessage">每一次认真判断，都会让它多一点光。</p>
@@ -251,7 +266,7 @@
           <div class="growth-visual">
             <span class="growth-stage-label" id="reflectionStage">初醒 · 第 3 次判断</span>
             <span class="growth-ring" aria-hidden="true"></span>
-            <span class="companion-atlas growth-art" id="growthArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
+            <span class="companion-atlas growth-art" id="growthArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.5" alt="" width="1254" height="1254" decoding="sync" /></span>
             <span class="growth-caption">它正在学习，如何和你一起读完这句话。</span>
           </div>
           <form class="growth-page" id="reflectionForm">
@@ -446,10 +461,10 @@
     </dialog>
 
     <dialog class="confirm-dialog" id="confirmDialog">
-      <form method="dialog"><p class="eyebrow">VERSION SWITCH</p><h2 id="confirmTitle">确认切换题库？</h2><p id="confirmCopy"></p><div><button class="button ghost" value="cancel">取消</button><button class="button primary" id="confirmAction" value="confirm">确认切换</button></div></form>
+      <form method="dialog"><p class="eyebrow">CONFIRM THIS PAGE</p><h2 id="confirmTitle">确认切换题库？</h2><p id="confirmCopy"></p><div><button class="button ghost" value="cancel">取消</button><button class="button primary" id="confirmAction" value="confirm">确认</button></div></form>
     </dialog>
 
-    <script src="./vendor/xlsx.full.min.js?v=3.1.4"></script>
-    <script type="module" src="./app.js?v=3.1.4"></script>
+    <script src="./vendor/xlsx.full.min.js?v=3.1.5"></script>
+    <script type="module" src="./app.js?v=3.1.5"></script>
   </body>
 </html>

@@ -7,13 +7,13 @@ import {
   spreadsheetReadSource,
   suggestMapping,
   validateMapping
-} from "./shared/data-adapter.js?v=3.1.4";
-import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.4";
-import { requestJson as api } from "./ui/api-client.js?v=3.1.4";
-import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.4";
-import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.4";
-import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.4";
-import { freshUploadState, state } from "./ui/state.js?v=3.1.4";
+} from "./shared/data-adapter.js?v=3.1.5";
+import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.5";
+import { requestJson as api } from "./ui/api-client.js?v=3.1.5";
+import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.5";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.5";
+import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.5";
+import { freshUploadState, state } from "./ui/state.js?v=3.1.5";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -966,11 +966,19 @@ async function loadVersions() {
   }
 }
 
-function askConfirm({ title, copy, action }) {
-  state.pendingConfirm = action;
+function askConfirm({ title, copy, confirmLabel = "确认", action, afterAction, successMessage }) {
+  state.pendingConfirm = { action, afterAction, successMessage };
   $("#confirmTitle").textContent = title;
   $("#confirmCopy").textContent = copy;
+  $("#confirmAction").textContent = confirmLabel;
   $("#confirmDialog").showModal();
+}
+
+async function refreshVersionState() {
+  await loadSession();
+  await loadReviewTimeline();
+  await loadVersions();
+  await loadBattle();
 }
 
 async function runVersionAction(button) {
@@ -980,13 +988,19 @@ async function runVersionAction(button) {
     askConfirm({
       title: `切回「${name}」？`,
       copy: "新评测会立刻使用这版题库。当前版本和它的票据都会保留。",
-      action: async () => api(`/api/admin/datasets/${encodeURIComponent(id)}/activate`, { method: "POST" })
+      confirmLabel: "确认切换",
+      action: async () => api(`/api/admin/datasets/${encodeURIComponent(id)}/activate`, { method: "POST" }),
+      afterAction: refreshVersionState,
+      successMessage: "版本已经切换。历史票据还在原版本里。"
     });
   } else {
     askConfirm({
       title: `删除草稿「${name}」？`,
       copy: "草稿和已上传的源文件会一起删除。已经发布过的版本不能这样删除。",
-      action: async () => api(`/api/admin/datasets/${encodeURIComponent(id)}`, { method: "DELETE" })
+      confirmLabel: "删除草稿",
+      action: async () => api(`/api/admin/datasets/${encodeURIComponent(id)}`, { method: "DELETE" }),
+      afterAction: refreshVersionState,
+      successMessage: "草稿已经删除。"
     });
   }
 }
@@ -1067,13 +1081,16 @@ function bindEvents() {
     showView("results");
     $("#resultsTitle")?.focus?.({ preventScroll: true });
   };
-  const returnToCover = () => {
+  const closeBookmarkMenu = () => { $("#bookmarkMenu").open = false; };
+  const returnToCover = (returnView = state.activeView) => {
     const welcome = $("#welcomeScreen");
-    state.coverReturnView = state.activeView === "results" ? "results" : "battle";
+    state.coverReturnView = returnView === "results" ? "results" : "battle";
     $("#closingScreen").hidden = true;
     $("#setupScreen").hidden = true;
     $("#contentsDialog")?.close();
     $("#reviewDialog")?.close();
+    $("#revealDialog")?.close();
+    closeBookmarkMenu();
     document.body.classList.remove("is-closing", "is-setup", "is-entering-reading", "is-cover-opening");
     document.body.classList.add("is-welcome");
     document.body.dataset.flowState = "COVER";
@@ -1087,6 +1104,22 @@ function bindEvents() {
     window.scrollTo({ top: 0, behavior: "instant" });
     window.setTimeout(() => $("#openSetup")?.focus?.({ preventScroll: true }), prefersReducedMotion() ? 0 : 260);
   };
+  const restartCurrentBook = () => {
+    closeBookmarkMenu();
+    askConfirm({
+      title: "重新开始这一册？",
+      copy: "当前浏览器里的投票、成长和出生基因会清空；已发布题库与其他浏览器数据不会受影响。确认后会回到书封，重新选择聊灵。",
+      confirmLabel: "清空并重新开始",
+      action: async () => api("/api/demo/reset", { method: "POST" }),
+      afterAction: async () => {
+        resetTimeline();
+        state.activeView = "battle";
+        state.coverReturnView = "battle";
+        await loadSession();
+        returnToCover("battle");
+      }
+    });
+  };
   $("#openSetup").addEventListener("click", openSetup);
   $("#coverObject").addEventListener("click", openSetup);
   $("#returnToFirstPage").addEventListener("click", () => {
@@ -1097,6 +1130,12 @@ function bindEvents() {
   $("#returnToIndex").addEventListener("click", returnToIndex);
   $("#returnToCover").addEventListener("click", returnToCover);
   $("#returnToCoverFromClosing").addEventListener("click", returnToCover);
+  $("#returnToCoverFromMenu").addEventListener("click", () => returnToCover());
+  $("#restartBook").addEventListener("click", restartCurrentBook);
+  document.addEventListener("click", (event) => {
+    const menu = $("#bookmarkMenu");
+    if (menu.open && !menu.contains(event.target)) closeBookmarkMenu();
+  });
   bindCompanionUi({
     api,
     showToast,
@@ -1187,15 +1226,12 @@ function bindEvents() {
   });
   $("#confirmDialog").addEventListener("close", async () => {
     if ($("#confirmDialog").returnValue !== "confirm" || !state.pendingConfirm) { state.pendingConfirm = null; return; }
-    const action = state.pendingConfirm;
+    const pendingConfirm = state.pendingConfirm;
     state.pendingConfirm = null;
     try {
-      await action();
-      await loadSession();
-      await loadReviewTimeline();
-      await loadVersions();
-      await loadBattle();
-      showToast("版本已经切换。历史票据还在原版本里。" );
+      await pendingConfirm.action();
+      await pendingConfirm.afterAction?.();
+      if (pendingConfirm.successMessage) showToast(pendingConfirm.successMessage);
     } catch (error) {
       showToast(error.message);
     }
