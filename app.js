@@ -7,13 +7,13 @@ import {
   spreadsheetReadSource,
   suggestMapping,
   validateMapping
-} from "./shared/data-adapter.js";
-import { REASON_TAGS } from "./shared/arena-utils.js";
-import { requestJson as api } from "./ui/api-client.js";
-import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js";
-import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js";
-import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js";
-import { freshUploadState, state } from "./ui/state.js";
+} from "./shared/data-adapter.js?v=3.1.1";
+import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.1";
+import { requestJson as api } from "./ui/api-client.js?v=3.1.1";
+import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.1";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.1";
+import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.1";
+import { freshUploadState, state } from "./ui/state.js?v=3.1.1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

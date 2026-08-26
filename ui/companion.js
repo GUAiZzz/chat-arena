@@ -17,7 +17,7 @@ function setAtlas(element, atlas = [0, 0]) {
 function setSpecies(element, species) {
   if (!element || !species?.sprite) return;
   element.classList.add("is-final-sprite");
-  element.style.setProperty("--companion-sprite", `url("./assets/companions/${species.sprite}")`);
+  element.style.setProperty("--companion-sprite", `url("./assets/companions/${species.sprite}?v=3.1.1")`);
   element.dataset.species = species.id || "";
 }
 

@@ -215,7 +215,7 @@ main, .site-footer { width: min(var(--max), calc(100% - 72px)); margin: 0 auto; 
 .companion-card-top i { color: var(--stamp); font-style: normal; }
 .companion-art-wrap { position: absolute; right: 7px; top: 23px; width: 56px; height: 56px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #f2e3cb; }
 .companion-halo { position: absolute; width: 37px; height: 37px; border: 1px solid rgba(189,110,53,.35); border-radius: 50%; animation: haloPulse 3s ease-in-out infinite; }
-.companion-atlas { display: block; background-image: url("./assets/liaoling-atlas-pixel-v1.png"); background-repeat: no-repeat; background-size: 400% 300%; background-position: var(--atlas-x,0%) var(--atlas-y,0%); }
+.companion-atlas { display: block; background-image: url("./assets/liaoling-atlas-pixel-v1.png?v=3.1.1"); background-repeat: no-repeat; background-size: 400% 300%; background-position: var(--atlas-x,0%) var(--atlas-y,0%); }
 .companion-art { position: relative; z-index: 1; width: 62px; height: 62px; filter: drop-shadow(0 5px 4px rgba(105,70,35,.18)); animation: companionFloat 3.4s ease-in-out infinite; }
 .companion-identity { max-width: 88px; margin-top: 23px; }
 .companion-identity small, .companion-identity b { display: block; }
@@ -435,7 +435,7 @@ body.is-welcome, body.is-setup {
   padding: 28px 30px;
   color: var(--retro-white);
   background-color: #0d1835;
-  background-image: url("./assets/storybook-cover-pixel-v1.png");
+  background-image: url("./assets/storybook-cover-pixel-v1.png?v=3.1.1");
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -476,7 +476,7 @@ body.is-welcome, body.is-setup {
 .genome-option > span:nth-of-type(2) small { color: #52617c; font-size: 10px; }
 .genome-option em { color: #52617c; font-family: var(--font-mono); }
 .genome-option.is-selected em { color: var(--stamp-soft); }
-.genome-glyph { width: 54px; height: 54px; overflow: hidden; border: 3px solid #0d1835; border-radius: 0; background-color: #0d1835; background-image: url("./assets/genome-seeds-pixel-v1.png"); background-repeat: no-repeat; background-size: 300% 100%; image-rendering: pixelated; box-shadow: 2px 2px 0 var(--blue); }
+.genome-glyph { width: 54px; height: 54px; overflow: hidden; border: 3px solid #0d1835; border-radius: 0; background-color: #0d1835; background-image: url("./assets/genome-seeds-pixel-v1.png?v=3.1.1"); background-repeat: no-repeat; background-size: 300% 100%; image-rendering: pixelated; box-shadow: 2px 2px 0 var(--blue); }
 .genome-glyph::before, .genome-glyph i { display: none; }
 .genome-glyph > img { position: absolute; top: 0; width: 300%; height: 100%; max-width: none; display: block; object-fit: fill; image-rendering: pixelated; pointer-events: none; }
 .genome-light > img { left: 0; }
@@ -602,7 +602,7 @@ body.is-welcome, body.is-setup {
 .companion-art-wrap { position: relative; right: auto; top: auto; width: 182px; height: 182px; min-height: 182px; display: grid; place-items: end center; margin: 2px 0 0; overflow: visible; border: 0; outline: 0; background: transparent; }
 .companion-art-wrap::after { content: ""; position: absolute; bottom: 8px; width: 124px; height: 8px; z-index: 0; background: #081127; box-shadow: 8px 0 0 rgba(255,119,168,.36); opacity: .75; }
 .companion-halo { display: none; }
-.companion-atlas { position: relative; overflow: hidden; background-image: url("./assets/liaoling-atlas-pixel-v1.png"); image-rendering: pixelated; }
+.companion-atlas { position: relative; overflow: hidden; background-image: url("./assets/liaoling-atlas-pixel-v1.png?v=3.1.1"); image-rendering: pixelated; }
 .companion-atlas > img { position: absolute; left: var(--atlas-img-x, 0%); top: var(--atlas-img-y, 0%); width: 400%; height: 300%; max-width: none; display: block; object-fit: fill; image-rendering: pixelated; pointer-events: none; }
 .companion-atlas.is-final-sprite { background-image: var(--companion-sprite); background-position: center bottom; background-repeat: no-repeat; background-size: contain; }
 .companion-atlas.is-final-sprite > img { display: none; }
