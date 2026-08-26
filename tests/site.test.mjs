@@ -32,6 +32,8 @@ test("serves the real internal arena without hard-coded rankings", async () => {
   assert.match(html, /查看当前聊灵成长状态/);
   assert.match(html, /id="previousBattle"/);
   assert.match(html, /id="editVote"/);
+  assert.match(html, /id="closingScreen"/);
+  assert.match(html, /id="closeBook"/);
   assert.match(html, /REAL VOTES ONLY/);
   assert.match(html, /xlsx\.full\.min\.js/);
   assert.doesNotMatch(html, /段位榜|Elo 模拟|12,840|ARENA_DATA|追问接力/);
@@ -42,14 +44,15 @@ test("serves the real internal arena without hard-coded rankings", async () => {
 });
 
 test("ships accessible controls and isolates browser persistence to the static adapter", async () => {
-  const [html, script, companionUi, staticApi, css, noJekyll, vendor] = await Promise.all([
+  const [html, script, companionUi, staticApi, css, noJekyll, vendor, devServer] = await Promise.all([
     fs.readFile(path.join(client, "index.html"), "utf8"),
     fs.readFile(path.join(client, "app.js"), "utf8"),
     fs.readFile(path.join(client, "ui", "companion.js"), "utf8"),
     fs.readFile(path.join(client, "ui", "static-api.js"), "utf8"),
     fs.readFile(path.join(client, "styles.css"), "utf8"),
     fs.readFile(path.join(client, ".nojekyll"), "utf8"),
-    fs.readFile(path.join(client, "vendor", "xlsx.full.min.js"), "utf8")
+    fs.readFile(path.join(client, "vendor", "xlsx.full.min.js"), "utf8"),
+    fs.readFile(path.join(root, "scripts", "dev.mjs"), "utf8")
   ]);
   assert.match(html, /aria-label="主要导航"/);
   assert.match(html, /role="progressbar"/);
@@ -67,6 +70,9 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(staticApi, /window\.localStorage/);
   assert.match(staticApi, /chat-arena:pixel-storybook:v1/);
   assert.match(css, /prefers-reduced-motion/);
+  assert.match(css, /bookCloseArrive/);
+  assert.match(script, /const openClosing/);
+  assert.match(devServer, /"\.mjs": "text\/javascript; charset=utf-8"/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /\.outcome-actions \.button,[\s\S]*?\.preview-table,[\s\S]*?font-size: 12px/);
   assert.equal(noJekyll, "");
@@ -83,8 +89,10 @@ test("GitHub Pages assets stay relative and all six pixel companions are package
     fs.readFile(path.join(client, "scripts", "local-api.mjs"), "utf8")
   ]);
   assert.doesNotMatch(html, /(?:src|href)="\/(?!\/)/);
-  assert.match(html, /styles\.css\?v=3\.1\.1/);
-  assert.match(html, /app\.js\?v=3\.1\.1/);
+  assert.match(html, /styles\.css\?v=3\.1\.2/);
+  assert.match(html, /app\.js\?v=3\.1\.2/);
+  assert.doesNotMatch(html, /liaoling-atlas-pixel-v1\.png"/);
+  assert.match(html, /liaoling-atlas-pixel-v1\.png\?v=3\.1\.2/);
   assert.doesNotMatch(`${app}\n${staticApi}\n${localApi}`, /from "\.\.?\/[^"?]+\.(?:js|mjs)"/);
   assert.doesNotMatch(css, /url\("\.\/assets\/[^"?]+"\)/);
   for (const sprite of ["ya-bo.png", "li-wei.png", "tai-jiao.png", "nuan-deng.png", "juan-xing.png", "ye-mo.png"]) {
