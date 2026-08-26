@@ -1,4 +1,4 @@
-import { createLocalApi } from "../scripts/local-api.mjs?v=3.1.4";
+import { createLocalApi } from "../scripts/local-api.mjs?v=3.1.5";
 
 let api;
 
