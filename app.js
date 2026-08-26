@@ -16,6 +16,20 @@ import { freshUploadState, state } from "./ui/state.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+let pendingRevealSnapshot = null;
+
+function milestonesForBook(total) {
+  const safeTotal = Math.max(0, Number(total) || 0);
+  return safeTotal ? [...new Set([Math.ceil(safeTotal / 3), Math.ceil(safeTotal * 2 / 3), safeTotal])] : [];
+}
+
+function updateGoalPreview(total) {
+  const milestones = milestonesForBook(total).join("、");
+  const copy = $("#goalMilestones");
+  const seal = $(".preview-seal");
+  if (copy) copy.textContent = milestones ? `会落在第 ${milestones} 页` : "当前题库还没有足够题目";
+  if (seal) seal.textContent = String(total || 0).padStart(2, "0");
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
@@ -123,7 +137,7 @@ function renderSession() {
   $("#runtimeNoticeLabel").textContent = browserDemo ? "STATIC DEMO" : "LOCAL DEMO";
   $("#runtimeNoticeText").textContent = browserDemo
     ? "投票、成长与题库只保存在当前浏览器；清除网站数据后会重置，不会上传到服务器。"
-    : "当前使用真实 Case；默认采用可见的演示分析。投票、成长和新上传题库会在关闭服务后清空。";
+    : "当前使用脱敏 Demo Case；默认采用可见的演示分析。投票、成长和新上传题库会在关闭服务后清空。";
   $("#adminNav").hidden = !session.isAdmin;
   const resultsNav = $('.nav-item[data-view="results"]');
   if (resultsNav) resultsNav.hidden = !session.companion?.season?.revealed;
@@ -144,17 +158,34 @@ function updateProgress(progress) {
   const completed = Number(progress?.completed || 0);
   const total = Number(progress?.total || 0);
   const goal = total || 9;
-  $("#battleProgressText").textContent = `${completed} / ${total}`;
-  $("#battleKicker").textContent = `CHAPTER 01 · PAGE 01—${String(goal).padStart(2, "0")}`;
   const currentPage = state.timelineAtEnd
     ? Math.max(1, goal || 1)
     : Math.min(goal || 1, Math.max(1, state.timelineIndex + 1));
+  $("#battleProgressText").textContent = `PAGE ${String(currentPage).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+  $("#battleKicker").textContent = `CHAPTER 01 · PAGE 01—${String(goal).padStart(2, "0")}`;
   const pageNumber = $("#bookPageNumber");
   if (pageNumber) pageNumber.textContent = `PAGE ${String(currentPage).padStart(2, "0")}`;
   const track = $("#battleProgressTrack");
   track.setAttribute("aria-valuemax", String(total));
   track.setAttribute("aria-valuenow", String(completed));
   $("#battleProgressFill").style.width = total ? `${Math.min(100, completed / total * 100)}%` : "0%";
+  const nextMilestone = state.session?.companion?.season?.nextMilestone;
+  const remaining = state.session?.companion?.season?.remaining;
+  const distance = $("#growthDistance");
+  if (distance) distance.textContent = nextMilestone ? `下一次成长：还有 ${remaining} 页` : "成长章节：等待装订";
+  const route = $("#pixelRoute");
+  if (route) {
+    const milestones = new Set(milestonesForBook(total));
+    route.setAttribute("aria-valuemax", String(total));
+    route.setAttribute("aria-valuenow", String(completed));
+    $$(".route-step", route).forEach((step, index) => {
+      const page = index + 1;
+      step.classList.toggle("is-active", page <= total);
+      step.classList.toggle("is-complete", page <= completed);
+      step.classList.toggle("is-current", page === completed + 1 && completed < total);
+      step.classList.toggle("is-milestone", milestones.has(page));
+    });
+  }
   updateBattleNavigation();
 }
 
@@ -272,7 +303,14 @@ async function finalizeBook() {
     updateCompanionSnapshot(payload.companion);
     $("#reviewDialog").close();
     renderEmptyBattle("complete");
-    openReveal(payload.companion);
+    pendingRevealSnapshot = payload.companion;
+    $("#battleView").hidden = true;
+    $("#growthChapter").hidden = true;
+    $("#bindingChapter").hidden = false;
+    document.body.classList.add("is-binding");
+    const total = Number(payload.companion?.season?.total || 9);
+    $("#bindingTitle").innerHTML = `把今天的 ${total} 次判断<br /><em>装订成一册。</em>`;
+    $("#bindingContinue").focus();
   } catch (error) {
     $("#reviewError").textContent = error.message;
     $("#reviewError").hidden = false;
@@ -292,9 +330,9 @@ function resetBattleUi() {
   $("#voteOutcome").hidden = true;
   $("#referenceText").textContent = "这页已经记下。参考与统计会在整本书装订后打开。";
   $("#editVote").disabled = false;
-  $("#editVote").textContent = "修改选择";
+  $("#editVote").textContent = "修改这一题选择";
   $("#nextBattle").disabled = false;
-  $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
+  $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
   $("#voteTitle").textContent = "如果是你，你会接着跟谁聊？";
   $$('.vote-button').forEach((button) => { button.disabled = false; button.classList.remove("is-selected"); });
   $$('.response-card').forEach((card) => card.classList.remove("is-selected", "is-muted"));
@@ -388,7 +426,7 @@ function previousBattle() {
     return;
   }
   renderTimelineEntry();
-  $("#battleShell").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#battleShell").scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function nextBattle() {
@@ -404,7 +442,7 @@ function nextBattle() {
     state.timelineIndex += 1;
     animatePageTurn();
     renderTimelineEntry();
-    $("#battleShell").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("#battleShell").scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
   animatePageTurn();
@@ -414,6 +452,7 @@ function nextBattle() {
 function beginVoteEdit() {
   if (!state.voteId) return;
   state.editingVote = true;
+  $("#voteOutcome").hidden = true;
   applyVoteSelection(currentTimelineEntry()?.winner, false);
   $("#editVote").disabled = true;
   $("#editVote").textContent = "请选择新的结果";
@@ -479,7 +518,7 @@ async function submitVote(winner) {
     renderReasonTags();
     $("#voteOutcome").hidden = false;
     $("#editVote").disabled = false;
-    $("#editVote").textContent = "修改选择";
+    $("#editVote").textContent = "修改这一题选择";
     $("#nextBattle").disabled = false;
     $("#voteTitle").textContent = "如果是你，你会接着跟谁聊？";
     if (result.progress) {
@@ -490,7 +529,7 @@ async function submitVote(winner) {
     if (result.companion?.season?.pendingReflection) {
       $("#nextBattle").textContent = `完成${result.companion.season.pendingReflection.stageName}对话 →`;
     } else {
-      $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
+      $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
     }
     if (editing) showToast("选择已更新，结果中的原票已经被覆盖。");
     $("#nextBattle").focus();
@@ -825,7 +864,12 @@ async function publishDataset() {
     await loadSession();
     await loadVersions();
     showToast("新题库已经发布。旧投票没有混进来。" );
-    setTimeout(() => { resetUpload(); showView("battle"); loadBattle(); }, 500);
+    setTimeout(async () => {
+      resetUpload();
+      showView("battle");
+      await loadReviewTimeline();
+      await loadBattle();
+    }, 500);
   } catch (error) {
     setInlineError($("#publishError"), `${error.message} 草稿已经保留，再点一次发布会先清理它。` );
     await loadVersions().catch(() => {});
@@ -892,9 +936,23 @@ async function runVersionAction(button) {
 function bindEvents() {
   const leaveWelcome = () => {
     $("#welcomeScreen").hidden = true;
+    $("#setupScreen").hidden = true;
     document.body.classList.remove("is-welcome");
+    document.body.classList.remove("is-setup");
+    document.body.dataset.flowState = "READING";
+    window.scrollTo({ top: 0, behavior: "instant" });
     $("#main-content").focus({ preventScroll: true });
   };
+  const openSetup = () => {
+    $("#welcomeScreen").hidden = true;
+    $("#setupScreen").hidden = false;
+    document.body.classList.remove("is-welcome");
+    document.body.classList.add("is-setup");
+    document.body.dataset.flowState = "SETUP";
+    $("#setupTitle")?.focus?.({ preventScroll: true });
+  };
+  $("#openSetup").addEventListener("click", openSetup);
+  $("#coverObject").addEventListener("click", openSetup);
   bindCompanionUi({
     api,
     showToast,
@@ -916,13 +974,20 @@ function bindEvents() {
         renderEmptyBattle("complete");
         openReveal(snapshot);
       } else {
-        $("#nextBattle").innerHTML = '保存此页并翻页 <span aria-hidden="true">→</span>';
+        $("#nextBattle").innerHTML = '下一题 <span aria-hidden="true">→</span>';
         loadBattle();
       }
     },
     onReset: () => window.location.reload(),
     onResults: () => showView("results"),
-    onGoalChange: (goal) => { $("#welcomeGoalFact").textContent = String(goal).padStart(2, "0"); }
+    onGoalChange: updateGoalPreview
+  });
+  $("#bindingContinue").addEventListener("click", () => {
+    $("#bindingChapter").hidden = true;
+    $("#battleView").hidden = false;
+    document.body.classList.remove("is-binding");
+    document.body.dataset.flowState = "REVEAL";
+    if (pendingRevealSnapshot) openReveal(pendingRevealSnapshot);
   });
   document.addEventListener("click", (event) => {
     const viewButton = event.target.closest("[data-view]");
@@ -983,6 +1048,7 @@ function bindEvents() {
     try {
       await action();
       await loadSession();
+      await loadReviewTimeline();
       await loadVersions();
       await loadBattle();
       showToast("版本已经切换。历史票据还在原版本里。" );
@@ -998,7 +1064,10 @@ async function boot() {
     await loadSession();
     if (state.session?.companion?.born) {
       $("#welcomeScreen").hidden = true;
+      $("#setupScreen").hidden = true;
       document.body.classList.remove("is-welcome");
+      document.body.classList.remove("is-setup");
+      document.body.dataset.flowState = "READING";
       await loadReviewTimeline();
       await loadBattle();
     }

@@ -64,7 +64,7 @@ function bodyText(value) {
 export function createLocalApi(runtimeEnv = {}) {
   const now = new Date().toISOString();
   const storage = runtimeEnv.storage || null;
-  const storageKey = runtimeEnv.storageKey || "chat-arena:static-demo:v1";
+  const storageKey = runtimeEnv.storageKey || "chat-arena:pixel-storybook:v1";
   const runtime = runtimeEnv.runtime || "local";
   const freshState = () => ({
     versions: [{

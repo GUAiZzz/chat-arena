@@ -1,23 +1,38 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let latestSnapshot = null;
+const STAGE_ATLAS = Object.freeze({ birth: [0, 0], awakening: [1, 0], forming: [2, 0], ready_to_reveal: [3, 0] });
 
-function setSprite(element, species = null, { hint = null } = {}) {
+function setAtlas(element, atlas = [0, 0]) {
   if (!element) return;
-  const sprite = species?.sprite || hint?.sprite;
-  element.classList.toggle("is-unrevealed", !sprite);
-  element.classList.toggle("is-foreshadowed", Boolean(!species && hint?.sprite));
-  element.style.setProperty("--companion-sprite", sprite ? `url("./assets/companions/${sprite}")` : "none");
-  element.dataset.species = species?.id || "";
+  const [column, row] = atlas;
+  element.classList.remove("is-final-sprite");
+  element.style.removeProperty("--companion-sprite");
+  element.style.setProperty("--atlas-x", `${Number(column || 0) * 33.3333}%`);
+  element.style.setProperty("--atlas-y", `${Number(row || 0) * 50}%`);
+  element.style.setProperty("--atlas-img-x", `${Number(column || 0) * -100}%`);
+  element.style.setProperty("--atlas-img-y", `${Number(row || 0) * -100}%`);
+}
+
+function setSpecies(element, species) {
+  if (!element || !species?.sprite) return;
+  element.classList.add("is-final-sprite");
+  element.style.setProperty("--companion-sprite", `url("./assets/companions/${species.sprite}")`);
+  element.dataset.species = species.id || "";
+}
+
+function setCompanionVisual(element, season, stage = season?.stage) {
+  if (season?.revealed && season.species) setSpecies(element, season.species);
+  else setAtlas(element, STAGE_ATLAS[stage] || STAGE_ATLAS.birth);
 }
 
 function stageCopy(season) {
-  if (!season) return { title: "等待与你相遇", message: "选好出生基因，它才会在 Chat Arena 醒来。" };
+  if (!season) return { title: "等待与你相遇", message: "选好出生基因，它才会在聊力场醒来。" };
   if (season.revealed && season.species) return { title: season.species.name, message: season.species.tagline };
   if (season.stage === "forming") return { title: "轮廓正在成形", message: season.latestReply || "它开始认出你在一句话里珍惜的东西。" };
   if (season.stage === "ready_to_reveal") return { title: "最后一页已经写好", message: "先校对整本书，再让它长成自己的最终形状。" };
   if (season.stage === "awakening") return { title: "它第一次睁开眼", message: season.latestReply || "有些偏好不必说破，也会慢慢长出形状。" };
-  return { title: "一只正在孵化的聊灵", message: "每一次认真判断，都会让它长出一点自己的轮廓。" };
+  return { title: "一颗正在听的种子", message: "每一次认真判断，都会让它多一点光。" };
 }
 
 export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
@@ -26,17 +41,15 @@ export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
   const season = snapshot?.season || null;
   const companion = snapshot?.companion || null;
   const copy = stageCopy(season);
-  const species = season?.species || null;
   const genome = companion?.genome || "light";
   const card = $("#companionCard");
   if (card) {
     card.dataset.genome = genome;
     card.dataset.stage = season?.stage || "birth";
-    card.dataset.revealed = String(Boolean(species));
   }
-  setSprite($("#companionArt"), species);
-  setSprite($("#companionCapsuleArt"), species);
-  $("#companionGenome").textContent = born ? `${companion.genomeName || "澄光"}基因` : "尚未出生";
+  setCompanionVisual($("#companionArt"), season);
+  setCompanionVisual($("#companionCapsuleArt"), season);
+  $("#companionGenome").textContent = born ? `${companion.genomeName || "澄光"} · 页角` : "尚未出生";
   $("#companionRole").textContent = season?.role === "echo" ? "回声分身" : "主伙伴";
   $("#companionTitle").textContent = copy.title;
   $("#companionMessage").textContent = copy.message;
@@ -65,14 +78,21 @@ export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
 export function openReflection(snapshot) {
   const pending = snapshot?.season?.pendingReflection;
   if (!pending) return false;
-  const dialog = $("#reflectionDialog");
-  dialog.dataset.milestone = String(pending.milestone);
+  const chapter = $("#growthChapter");
+  chapter.dataset.milestone = String(pending.milestone);
   $("#reflectionStage").textContent = `${pending.stageName} · 第 ${pending.milestone} 次判断`;
   $("#reflectionPrompt").textContent = pending.prompt;
   $("#reflectionText").value = "";
   $("#reflectionCount").textContent = "0 / 180";
   $("#reflectionError").hidden = true;
-  if (!dialog.open) dialog.showModal();
+  setCompanionVisual($("#growthArt"), snapshot?.season, pending.stage);
+  const chapterIndex = Math.max(1, Math.min(3, Math.round(Number(pending.milestone) / (Number(snapshot?.season?.total || 9) / 3))));
+  $("#chapterNumber").textContent = String(chapterIndex).padStart(2, "0");
+  $("#battleView").hidden = true;
+  chapter.hidden = false;
+  document.body.classList.add("is-growth");
+  document.body.dataset.flowState = "GROWTH_CHAPTER";
+  window.scrollTo({ top: 0, behavior: "instant" });
   setTimeout(() => $("#reflectionText").focus(), 0);
   return true;
 }
@@ -81,7 +101,7 @@ export function openReveal(snapshot) {
   const season = snapshot?.season;
   if (!season?.revealed || !season.species) return false;
   const dialog = $("#revealDialog");
-  setSprite($("#revealArt"), season.species);
+  setSpecies($("#revealArt"), season.species);
   $("#revealGenome").textContent = `${snapshot.companion.genomeName}基因 · ${season.role === "echo" ? "回声分身" : "主伙伴"}`;
   $("#revealName").textContent = season.species.name;
   $("#revealTagline").textContent = season.species.tagline;
@@ -105,9 +125,8 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
       card.querySelector("em").textContent = selected ? "已选择" : "选择";
     });
   }));
-  $$('input[name="sessionGoal"]').forEach((input) => input.addEventListener("change", () => {
-    $$('[data-goal-card], .goal-option').forEach((card) => card.classList.toggle("is-selected", card.querySelector('input[name="sessionGoal"]')?.checked));
-    $("#welcomeGoalFact").textContent = String(input.value).padStart(2, "0");
+  $$("input[name=\"sessionGoal\"]").forEach((input) => input.addEventListener("change", () => {
+    $$("[data-goal-card]").forEach((card) => card.classList.toggle("is-selected", card.querySelector("input")?.checked));
     onGoalChange?.(Number(input.value));
   }));
 
@@ -131,7 +150,7 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
   });
 
   async function submitReflection(text) {
-    const dialog = $("#reflectionDialog");
+    const chapter = $("#growthChapter");
     const button = $("#submitReflection");
     button.disabled = true;
     $("#skipReflection").disabled = true;
@@ -139,9 +158,12 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
     try {
       const payload = await api("/api/companion/reflections", {
         method: "POST",
-        body: JSON.stringify({ milestone: Number(dialog.dataset.milestone), text })
+        body: JSON.stringify({ milestone: Number(chapter.dataset.milestone), text })
       });
-      dialog.close();
+      chapter.hidden = true;
+      $("#battleView").hidden = false;
+      document.body.classList.remove("is-growth");
+      document.body.dataset.flowState = "READING";
       onReflection(payload.companion);
     } catch (error) {
       $("#reflectionError").textContent = error.message;
@@ -158,7 +180,7 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
   });
   $("#skipReflection").addEventListener("click", () => submitReflection(""));
   $("#demoReset").addEventListener("click", async () => {
-    if (!window.confirm("重置当前本地体验？投票、成长和出生基因都会清空，题库不会改变。")) return;
+    if (!window.confirm("重新打开一册？当前浏览器里的投票、成长和出生基因会清空，题库版本仍会保留。")) return;
     try {
       await api("/api/demo/reset", { method: "POST" });
       onReset();
