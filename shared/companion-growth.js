@@ -30,14 +30,16 @@ export function normalizeSessionGoal(value, available = 12) {
 }
 
 export function milestonesForGoal(goal = 9) {
-  const normalized = SESSION_GOALS.includes(Number(goal)) ? Number(goal) : 9;
-  return SESSION_GOALS.includes(normalized) ? [normalized / 3, normalized * 2 / 3, normalized] : [3, 6, 9];
+  const normalized = Math.max(1, Math.floor(Number(goal) || 9));
+  return [...new Set([Math.ceil(normalized / 3), Math.ceil(normalized * 2 / 3), normalized])];
 }
 
 export function milestoneDefinition(goal = 9, milestone) {
-  const index = milestonesForGoal(goal).indexOf(Number(milestone));
+  const milestones = milestonesForGoal(goal);
+  const index = milestones.indexOf(Number(milestone));
   if (index < 0) return null;
-  return { milestone: Number(milestone), ...MILESTONE_TEMPLATES[index] };
+  const templateIndex = index === milestones.length - 1 ? 2 : Math.min(index, 1);
+  return { milestone: Number(milestone), ...MILESTONE_TEMPLATES[templateIndex] };
 }
 
 export const SPECIES = Object.freeze({
@@ -104,11 +106,14 @@ export function speciesForScores(scores, genome = "light") {
 export function stageForProgress(completed, reflected = [], goal = 9, finalized = false) {
   const done = new Set(reflected.map(Number));
   const milestones = milestonesForGoal(goal);
-  if (Number(completed) >= milestones[2] && done.has(milestones[2])) return finalized
+  const finalMilestone = milestones.at(-1);
+  const formingMilestone = milestones.length >= 3 ? milestones[1] : null;
+  const awakeningMilestone = milestones.length >= 2 ? milestones[0] : null;
+  if (Number(completed) >= finalMilestone && done.has(finalMilestone)) return finalized
     ? { id: "revealed", name: "定型", level: 4 }
     : { id: "ready_to_reveal", name: "待装订", level: 4 };
-  if (Number(completed) >= milestones[1] && done.has(milestones[1])) return { id: "forming", name: "成形", level: 3 };
-  if (Number(completed) >= milestones[0] && done.has(milestones[0])) return { id: "awakening", name: "初醒", level: 2 };
+  if (formingMilestone && Number(completed) >= formingMilestone && done.has(formingMilestone)) return { id: "forming", name: "成形", level: 3 };
+  if (awakeningMilestone && Number(completed) >= awakeningMilestone && done.has(awakeningMilestone)) return { id: "awakening", name: "初醒", level: 2 };
   return { id: "birth", name: "出生", level: 1 };
 }
 

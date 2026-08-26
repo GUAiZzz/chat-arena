@@ -16,6 +16,7 @@ import {
   SPECIES,
   analysisToPoints,
   milestoneDefinition,
+  milestonesForGoal,
   normalizeSessionGoal,
   pendingMilestone,
   scoreReasonTags,
@@ -224,7 +225,7 @@ async function companionSnapshot(db, user, version, createSeason = true) {
   const completed = Math.min(goal, Number(progress?.completed || 0));
   const stage = stageForProgress(completed, reflected, goal, Boolean(season.revealed_at));
   const pending = pendingMilestone(completed, reflected, goal);
-  const upcoming = [goal / 3, goal * 2 / 3, goal].find((milestone) => completed < milestone) || null;
+  const upcoming = milestonesForGoal(goal).find((milestone) => completed < milestone) || null;
   const latest = events.slice().reverse().find((event) => event.companion_reply);
   const traces = events.filter((event) => event.source_type === "reflection" && event.memory_summary).slice(-3).map((event) => event.memory_summary);
   const species = Object.values(SPECIES).find((item) => item.id === season.species) || null;

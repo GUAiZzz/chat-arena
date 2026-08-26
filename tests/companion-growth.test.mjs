@@ -48,6 +48,11 @@ test("every supported session length maps to exactly three growth milestones", (
   assert.deepEqual(milestonesForGoal(6), [2, 4, 6]);
   assert.deepEqual(milestonesForGoal(9), [3, 6, 9]);
   assert.deepEqual(milestonesForGoal(12), [4, 8, 12]);
+  assert.deepEqual(milestonesForGoal(4), [2, 3, 4]);
+  assert.deepEqual(milestonesForGoal(5), [2, 4, 5]);
+  assert.deepEqual(milestonesForGoal(2), [1, 2]);
+  assert.equal(milestoneDefinition(2, 2).stageName, "定型");
+  assert.equal(stageForProgress(2, [1, 2], 2).id, "ready_to_reveal");
   assert.equal(milestoneDefinition(12, 4).stageName, "初醒");
   assert.equal(milestoneDefinition(12, 8).stageName, "成形");
   assert.equal(milestoneDefinition(12, 12).stageName, "定型");

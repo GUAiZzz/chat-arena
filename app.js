@@ -284,10 +284,11 @@ function openBookReview() {
   const total = Number(state.session?.progress?.total || 0);
   const completed = Number(state.session?.progress?.completed || 0);
   const reflections = state.session?.companion?.season?.traces?.length || 0;
+  const reflectionGoal = milestonesForBook(total).length;
   summary.replaceChildren();
   [
     ["书页", `${completed} / ${total}`, completed >= total ? "已完成" : "还需要继续阅读"],
-    ["成长章节", `${reflections} / 3`, reflections >= 3 ? "已完成" : "可以跳过，但还未全部写下"],
+    ["成长章节", `${reflections} / ${reflectionGoal}`, reflections >= reflectionGoal ? "已完成" : "可以跳过，但还未全部写下"],
     ["揭晓", state.session?.companion?.season?.revealed ? "已揭晓" : "装订后开启", state.session?.companion?.season?.revealed ? "已锁定" : "等待确认"]
   ].forEach(([label, value, copy]) => {
     const item = document.createElement("div");

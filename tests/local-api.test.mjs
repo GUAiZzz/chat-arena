@@ -13,8 +13,8 @@ async function request(api, pathname, method = "GET", body = null) {
   return { status: result.status, body: JSON.parse(result.body) };
 }
 
-async function normalizedWorkbook() {
-  const rows = demoSamples.map((sample) => ({
+async function normalizedWorkbook(count = demoSamples.length) {
+  const rows = demoSamples.slice(0, count).map((sample) => ({
     uid: sample.source_uid,
     query: sample.query,
     model_a_resp: sample.response_a,
@@ -25,6 +25,21 @@ async function normalizedWorkbook() {
   const normalized = normalizeRows(rows, suggestMapping(Object.keys(rows[0])).mapping);
   return { file: Buffer.from("self-contained Chat Arena fixture"), normalized };
 }
+
+test("custom dataset sizes use whole-page growth milestones", async () => {
+  const api = createLocalApi();
+  const { file, normalized } = await normalizedWorkbook(4);
+  const created = await request(api, "/api/admin/datasets", "POST", { displayName: "四页测试", mapping: {}, preflightSummary: normalized.summary });
+  const versionId = created.body.version.id;
+  await request(api, `/api/admin/datasets/${versionId}/source?filename=four.xlsx`, "PUT", file);
+  await request(api, `/api/admin/datasets/${versionId}/samples/batch`, "POST", { samples: normalized.samples });
+  await request(api, `/api/admin/datasets/${versionId}/validate`, "POST");
+  await request(api, `/api/admin/datasets/${versionId}/publish`, "POST");
+  const born = await request(api, "/api/companion/birth", "POST", { genome: "light" });
+  assert.equal(born.body.companion.season.goal, 4);
+  assert.equal(born.body.companion.season.nextMilestone, 2);
+  assert.equal(born.body.companion.season.remaining, 2);
+});
 
 test("local demo starts offline with all nine sanitized cases and admin access", async () => {
   const session = await request(createLocalApi(), "/api/session");
