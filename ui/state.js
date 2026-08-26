@@ -29,6 +29,7 @@ export const state = {
   contentsOpen: false,
   activeVersionId: null,
   activeView: "battle",
+  coverReturnView: "battle",
   upload: freshUploadState(),
   pendingConfirm: null
 };

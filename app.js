@@ -7,13 +7,13 @@ import {
   spreadsheetReadSource,
   suggestMapping,
   validateMapping
-} from "./shared/data-adapter.js?v=3.1.3";
-import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.3";
-import { requestJson as api } from "./ui/api-client.js?v=3.1.3";
-import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.3";
-import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.3";
-import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.3";
-import { freshUploadState, state } from "./ui/state.js?v=3.1.3";
+} from "./shared/data-adapter.js?v=3.1.4";
+import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.4";
+import { requestJson as api } from "./ui/api-client.js?v=3.1.4";
+import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.4";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.4";
+import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.4";
+import { freshUploadState, state } from "./ui/state.js?v=3.1.4";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -33,6 +33,28 @@ function updateGoalPreview(total) {
   const seal = $(".preview-seal");
   if (copy) copy.textContent = milestones ? `会落在第 ${milestones} 页` : "当前题库还没有足够题目";
   if (seal) seal.textContent = String(total || 0).padStart(2, "0");
+}
+
+function renderCoverPresentation({ returning = false } = {}) {
+  const session = state.session;
+  const hasBook = Boolean(session?.companion?.born);
+  const completed = Number(session?.progress?.completed || 0);
+  const total = Number(session?.progress?.total || 0);
+  const resumingIndex = state.coverReturnView === "results";
+  $("#coverEyebrow").textContent = returning && hasBook ? "BOOKMARK SAVED · YOUR STORYBOOK" : "CHAT ARENA · INTERACTIVE STORYBOOK";
+  $("#coverSummary").textContent = returning && hasBook
+    ? total ? `这一册已经写下 ${completed} / ${total} 页。你的选择、成长和聊灵都在原处等你。` : "这一册仍在书签处等你。你的选择、成长和聊灵都在原处。"
+    : "一本由你的聊天判断写成的生命手册。";
+  $("#coverActionText").textContent = returning && hasBook
+    ? resumingIndex ? "继续回看这一册" : "继续这一册"
+    : "打开今天的手册";
+  $("#coverHint").textContent = returning && hasBook
+    ? "回到书封不会重置任何进度 · 继续时会回到你离开的地方"
+    : "匿名判断 · 三次成长 · 最后揭晓";
+  const bookmark = $("#coverBookmark");
+  bookmark.hidden = !(returning && hasBook);
+  if (!bookmark.hidden) bookmark.innerHTML = `BOOKMARK<br /><b>PAGE ${String(Math.max(1, Math.min(completed || 1, total || 1))).padStart(2, "0")}</b>`;
+  $("#coverObject").setAttribute("aria-label", returning && hasBook ? "继续这一册" : "打开今天的手册");
 }
 
 function escapeHtml(value) {
@@ -158,6 +180,7 @@ function renderSession() {
   updateEmber();
   updateBattleNavigation();
   renderMechanism();
+  if (!$("#welcomeScreen")?.hidden) renderCoverPresentation();
 }
 
 function updateProgress(progress) {
@@ -980,6 +1003,7 @@ function bindEvents() {
     document.body.classList.remove("is-cover-opening");
     document.body.classList.add("is-setup");
     document.body.dataset.flowState = "SETUP";
+    coverIsOpening = false;
     $("#setupTitle")?.focus?.({ preventScroll: true });
   };
   const leaveWelcome = async () => {
@@ -994,7 +1018,27 @@ function bindEvents() {
     window.scrollTo({ top: 0, behavior: "instant" });
     $("#main-content").focus({ preventScroll: true });
   };
+  const resumeBookFromCover = async () => {
+    if (coverIsOpening) return;
+    coverIsOpening = true;
+    const welcome = $("#welcomeScreen");
+    const returnView = state.coverReturnView || "battle";
+    document.body.classList.add("is-cover-opening");
+    welcome.classList.add("is-opening", "is-resuming");
+    if (!prefersReducedMotion()) await pause(460);
+    welcome.hidden = true;
+    welcome.classList.remove("is-opening", "is-resuming");
+    document.body.classList.remove("is-welcome", "is-cover-opening");
+    document.body.dataset.flowState = "READING";
+    showView(returnView);
+    coverIsOpening = false;
+    $("#main-content").focus({ preventScroll: true });
+  };
   const openSetup = async () => {
+    if (state.session?.companion?.born) {
+      await resumeBookFromCover();
+      return;
+    }
     if (coverIsOpening) return;
     coverIsOpening = true;
     const welcome = $("#welcomeScreen");
@@ -1023,6 +1067,26 @@ function bindEvents() {
     showView("results");
     $("#resultsTitle")?.focus?.({ preventScroll: true });
   };
+  const returnToCover = () => {
+    const welcome = $("#welcomeScreen");
+    state.coverReturnView = state.activeView === "results" ? "results" : "battle";
+    $("#closingScreen").hidden = true;
+    $("#setupScreen").hidden = true;
+    $("#contentsDialog")?.close();
+    $("#reviewDialog")?.close();
+    document.body.classList.remove("is-closing", "is-setup", "is-entering-reading", "is-cover-opening");
+    document.body.classList.add("is-welcome");
+    document.body.dataset.flowState = "COVER";
+    document.body.dataset.activeView = "cover";
+    renderCoverPresentation({ returning: true });
+    welcome.hidden = false;
+    welcome.classList.remove("is-opening", "is-resuming", "is-returning");
+    void welcome.offsetWidth;
+    welcome.classList.add("is-returning");
+    window.setTimeout(() => welcome.classList.remove("is-returning"), prefersReducedMotion() ? 0 : 650);
+    window.scrollTo({ top: 0, behavior: "instant" });
+    window.setTimeout(() => $("#openSetup")?.focus?.({ preventScroll: true }), prefersReducedMotion() ? 0 : 260);
+  };
   $("#openSetup").addEventListener("click", openSetup);
   $("#coverObject").addEventListener("click", openSetup);
   $("#returnToFirstPage").addEventListener("click", () => {
@@ -1031,6 +1095,8 @@ function bindEvents() {
   $("#closeBook").addEventListener("click", openClosing);
   $("#reopenBook").addEventListener("click", returnToIndex);
   $("#returnToIndex").addEventListener("click", returnToIndex);
+  $("#returnToCover").addEventListener("click", returnToCover);
+  $("#returnToCoverFromClosing").addEventListener("click", returnToCover);
   bindCompanionUi({
     api,
     showToast,
@@ -1141,6 +1207,7 @@ async function boot() {
   document.body.dataset.activeView = state.activeView;
   try {
     await loadSession();
+    renderCoverPresentation();
     if (state.session?.companion?.born) {
       $("#welcomeScreen").hidden = true;
       $("#setupScreen").hidden = true;

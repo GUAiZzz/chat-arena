@@ -14,7 +14,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="__SITE_ORIGIN__/og.png" />
     <title>Chat Arena · 互动故事手册</title>
-    <link rel="stylesheet" href="./styles.css?v=3.1.3" />
+    <link rel="stylesheet" href="./styles.css?v=3.1.4" />
   </head>
   <body class="is-welcome" data-flow-state="COVER">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -23,18 +23,19 @@
       <div class="desk-grain" aria-hidden="true"></div>
       <div class="cover-stage">
         <div class="cover-copy">
-          <p class="eyebrow">CHAT ARENA · INTERACTIVE STORYBOOK</p>
+          <p class="eyebrow" id="coverEyebrow">CHAT ARENA · INTERACTIVE STORYBOOK</p>
           <h1 id="welcomeTitle">CHAT<br /><em>ARENA</em></h1>
-          <p>一本由你的聊天判断写成的生命手册。</p>
-          <button class="button primary cover-action" id="openSetup" type="button">打开今天的手册 <span aria-hidden="true">→</span></button>
-          <small>匿名判断 · 三次成长 · 最后揭晓</small>
+          <p id="coverSummary">一本由你的聊天判断写成的生命手册。</p>
+          <button class="button primary cover-action" id="openSetup" type="button"><span id="coverActionText">打开今天的手册</span> <span aria-hidden="true">→</span></button>
+          <small id="coverHint">匿名判断 · 三次成长 · 最后揭晓</small>
         </div>
         <button class="storybook-cover" type="button" id="coverObject" aria-label="打开今天的手册">
-          <img class="storybook-cover-art" src="./assets/storybook-cover-pixel-v1.png?v=3.1.3" alt="" width="1448" height="1086" decoding="sync" fetchpriority="high" />
+          <img class="storybook-cover-art" src="./assets/storybook-cover-pixel-v1.png?v=3.1.4" alt="" width="1448" height="1086" decoding="sync" fetchpriority="high" />
           <span class="cover-spine" aria-hidden="true"></span>
           <span class="cover-label"><b>CHAT<br />ARENA</b><i>一册关于<br />如何接住一句话的手册</i></span>
           <span class="cover-seed" aria-hidden="true"><i></i><b></b></span>
           <span class="cover-stamp">VOL. 01<br /><b>YOUR<br />READING</b></span>
+          <span class="cover-bookmark" id="coverBookmark" hidden>BOOKMARK<br /><b>PAGE 01</b></span>
         </button>
       </div>
       <p class="cover-footnote">成长不影响评测结果 · 里程碑原文不会被保存</p>
@@ -51,19 +52,19 @@
             <legend><span>出生基因</span><small id="genomeHint">三条血统，等价的相遇。</small></legend>
             <label class="genome-option is-selected" data-genome-card="light">
               <input type="radio" name="genome" value="light" checked />
-              <span class="genome-glyph genome-light" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.3" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-light" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>澄光</b><small>克制 · 通透 · 轻幻想</small></span>
               <em>已选择</em>
             </label>
             <label class="genome-option" data-genome-card="cloud">
               <input type="radio" name="genome" value="cloud" />
-              <span class="genome-glyph genome-cloud" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.3" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-cloud" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>绒云</b><small>柔软 · 治愈 · 萌宠感</small></span>
               <em>选择</em>
             </label>
             <label class="genome-option" data-genome-card="alien">
               <input type="radio" name="genome" value="alien" />
-              <span class="genome-glyph genome-alien" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.3" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
+              <span class="genome-glyph genome-alien" aria-hidden="true"><img src="./assets/genome-seeds-pixel-v1.png?v=3.1.4" alt="" width="2172" height="724" decoding="sync" /><i></i></span>
               <span><b>异星</b><small>陌生 · 灵动 · 奇异生命</small></span>
               <em>选择</em>
             </label>
@@ -89,7 +90,7 @@
     <section class="closing-screen" id="closingScreen" hidden aria-labelledby="closingTitle">
       <div class="closing-stage">
         <button class="closing-cover" type="button" id="reopenBook" aria-label="重新打开这一册">
-          <img src="./assets/storybook-cover-pixel-v1.png?v=3.1.3" alt="" width="1448" height="1086" decoding="sync" />
+          <img src="./assets/storybook-cover-pixel-v1.png?v=3.1.4" alt="" width="1448" height="1086" decoding="sync" />
           <span class="cover-label"><b>CHAT<br />ARENA</b><i>这一册已经<br />装订完成</i></span>
           <span class="cover-stamp">VOL. 01<br /><b>BOUND</b></span>
         </button>
@@ -97,7 +98,10 @@
           <p class="eyebrow">THE BOOK IS CLOSED</p>
           <h1 id="closingTitle" tabindex="-1">这一册，<em>已经合上。</em></h1>
           <p>你留下的判断仍在这台设备里；它们已经长成这一册的结尾。</p>
-          <button class="button primary" id="returnToIndex" type="button">再看书后索引 <span aria-hidden="true">→</span></button>
+          <div class="closing-actions">
+            <button class="button primary" id="returnToIndex" type="button">再看书后索引 <span aria-hidden="true">→</span></button>
+            <button class="button ghost" id="returnToCoverFromClosing" type="button">回到最初书封</button>
+          </div>
         </div>
       </div>
     </section>
@@ -139,7 +143,7 @@
       </div>
 
       <button class="companion-capsule" id="companionCapsule" type="button" aria-label="查看当前聊灵成长状态">
-        <span class="companion-atlas companion-capsule-art" id="companionCapsuleArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.3" alt="" width="1254" height="1254" decoding="sync" /></span>
+        <span class="companion-atlas companion-capsule-art" id="companionCapsuleArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
         <span><b id="companionCapsuleName">出生 · 聊灵</b><small id="companionCapsuleMeta">再完成 3 次判断，进入下一阶段</small></span>
         <i aria-hidden="true">↗</i>
       </button>
@@ -214,7 +218,7 @@
               <div class="companion-card-top"><span id="companionGenome">澄光 · 页角</span><i id="analysisMode" hidden>演示分析</i></div>
               <div class="companion-art-wrap" aria-hidden="true">
                 <span class="companion-halo"></span>
-                <span class="companion-atlas companion-art" id="companionArt"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.3" alt="" width="1254" height="1254" decoding="sync" /></span>
+                <span class="companion-atlas companion-art" id="companionArt"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
               </div>
               <div class="companion-identity"><span><small id="companionRole">主伙伴</small><b id="companionTitle">一颗正在听的种子</b></span><em id="companionStage">出生</em></div>
               <p id="companionMessage">每一次认真判断，都会让它多一点光。</p>
@@ -247,7 +251,7 @@
           <div class="growth-visual">
             <span class="growth-stage-label" id="reflectionStage">初醒 · 第 3 次判断</span>
             <span class="growth-ring" aria-hidden="true"></span>
-            <span class="companion-atlas growth-art" id="growthArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.3" alt="" width="1254" height="1254" decoding="sync" /></span>
+            <span class="companion-atlas growth-art" id="growthArt" aria-hidden="true"><img src="./assets/liaoling-atlas-pixel-v1.png?v=3.1.4" alt="" width="1254" height="1254" decoding="sync" /></span>
             <span class="growth-caption">它正在学习，如何和你一起读完这句话。</span>
           </div>
           <form class="growth-page" id="reflectionForm">
@@ -282,6 +286,7 @@
           <div class="results-actions">
             <button class="button secondary" id="refreshResults" type="button">刷新结果</button>
             <button class="button ghost" id="closeBook" type="button">合上这一册</button>
+            <button class="button ghost results-cover-action" id="returnToCover" type="button">回到最初书封</button>
           </div>
         </div>
 
@@ -444,7 +449,7 @@
       <form method="dialog"><p class="eyebrow">VERSION SWITCH</p><h2 id="confirmTitle">确认切换题库？</h2><p id="confirmCopy"></p><div><button class="button ghost" value="cancel">取消</button><button class="button primary" id="confirmAction" value="confirm">确认切换</button></div></form>
     </dialog>
 
-    <script src="./vendor/xlsx.full.min.js?v=3.1.3"></script>
-    <script type="module" src="./app.js?v=3.1.3"></script>
+    <script src="./vendor/xlsx.full.min.js?v=3.1.4"></script>
+    <script type="module" src="./app.js?v=3.1.4"></script>
   </body>
 </html>
