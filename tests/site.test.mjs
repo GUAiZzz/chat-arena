@@ -61,6 +61,8 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(script, /\/api\/admin\/datasets/);
   assert.match(script, /GitHub Pages · 浏览器本地模式/);
   assert.match(script, /选择已更新，结果中的原票已经被覆盖/);
+  assert.match(script, /成长章节：已装订/);
+  assert.match(script, /function renderEmptyBattle[\s\S]*?updateProgress\(state\.session\?\.progress\);[\s\S]*?function renderContents/);
   assert.doesNotMatch(`${script}\n${companionUi}`, /localStorage|sessionStorage/);
   assert.match(staticApi, /window\.localStorage/);
   assert.match(staticApi, /chat-arena:pixel-storybook:v1/);

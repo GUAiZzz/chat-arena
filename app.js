@@ -172,7 +172,13 @@ function updateProgress(progress) {
   const nextMilestone = state.session?.companion?.season?.nextMilestone;
   const remaining = state.session?.companion?.season?.remaining;
   const distance = $("#growthDistance");
-  if (distance) distance.textContent = nextMilestone ? `下一次成长：还有 ${remaining} 页` : "成长章节：等待装订";
+  if (distance) {
+    distance.textContent = nextMilestone
+      ? `下一次成长：还有 ${remaining} 页`
+      : state.session?.companion?.season?.revealed
+        ? "成长章节：已装订"
+        : "成长章节：等待装订";
+  }
   const route = $("#pixelRoute");
   if (route) {
     const milestones = new Set(milestonesForBook(total));
@@ -232,7 +238,7 @@ function renderEmptyBattle(reason) {
     button.textContent = "去管理题库";
     button.dataset.view = "admin";
   }
-  updateBattleNavigation();
+  updateProgress(state.session?.progress);
 }
 
 function renderContents() {
