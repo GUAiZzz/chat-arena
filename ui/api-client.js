@@ -1,4 +1,4 @@
-import { requestStatic } from "./static-api.js?v=3.1.3";
+import { requestStatic } from "./static-api.js?v=3.1.4";
 
 export async function requestJson(path, options = {}) {
   if (document.documentElement.dataset.runtime === "static") return requestStatic(path, options);

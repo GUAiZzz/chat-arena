@@ -32,6 +32,8 @@ test("serves the real internal arena without hard-coded rankings", async () => {
   assert.match(html, /查看当前聊灵成长状态/);
   assert.match(html, /id="previousBattle"/);
   assert.match(html, /id="returnToFirstPage"[^>]*aria-label="回到第 1 页"/);
+  assert.match(html, /id="returnToCover"/);
+  assert.match(html, /id="returnToCoverFromClosing"/);
   assert.match(html, /id="editVote"/);
   assert.match(html, /id="closingScreen"/);
   assert.match(html, /id="closeBook"/);
@@ -66,6 +68,9 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(script, /GitHub Pages · 浏览器本地模式/);
   assert.match(script, /选择已更新，结果中的原票已经被覆盖/);
   assert.match(script, /async function returnToFirstPage\(\)/);
+  assert.match(script, /const returnToCover = \(\) =>/);
+  assert.match(script, /const resumeBookFromCover = async \(\) =>/);
+  assert.match(script, /回到书封不会重置任何进度/);
   assert.match(script, /document\.body\.dataset\.activeView = view/);
   assert.match(script, /成长章节：已装订/);
   assert.match(script, /function renderEmptyBattle[\s\S]*?updateProgress\(state\.session\?\.progress\);[\s\S]*?function renderContents/);
@@ -74,6 +79,8 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(staticApi, /chat-arena:pixel-storybook:v1/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /bookCloseArrive/);
+  assert.match(css, /bookResumeIntoReading/);
+  assert.match(css, /\.cover-bookmark/);
   assert.match(css, /body\[data-flow-state="READING"\]\[data-active-view="battle"\]/);
   assert.match(css, /\.table-scroll \{ max-height: min\(280px, 30vh\); overflow: auto;/);
   assert.match(css, /\.stage-actions \{ position: sticky; bottom: 0;/);
@@ -95,10 +102,10 @@ test("GitHub Pages assets stay relative and all six pixel companions are package
     fs.readFile(path.join(client, "scripts", "local-api.mjs"), "utf8")
   ]);
   assert.doesNotMatch(html, /(?:src|href)="\/(?!\/)/);
-  assert.match(html, /styles\.css\?v=3\.1\.3/);
-  assert.match(html, /app\.js\?v=3\.1\.3/);
+  assert.match(html, /styles\.css\?v=3\.1\.4/);
+  assert.match(html, /app\.js\?v=3\.1\.4/);
   assert.doesNotMatch(html, /liaoling-atlas-pixel-v1\.png"/);
-  assert.match(html, /liaoling-atlas-pixel-v1\.png\?v=3\.1\.3/);
+  assert.match(html, /liaoling-atlas-pixel-v1\.png\?v=3\.1\.4/);
   assert.doesNotMatch(`${app}\n${staticApi}\n${localApi}`, /from "\.\.?\/[^"?]+\.(?:js|mjs)"/);
   assert.doesNotMatch(css, /url\("\.\/assets\/[^"?]+"\)/);
   for (const sprite of ["ya-bo.png", "li-wei.png", "tai-jiao.png", "nuan-deng.png", "juan-xing.png", "ye-mo.png"]) {
