@@ -215,7 +215,7 @@ main, .site-footer { width: min(var(--max), calc(100% - 72px)); margin: 0 auto; 
 .companion-card-top i { color: var(--stamp); font-style: normal; }
 .companion-art-wrap { position: absolute; right: 7px; top: 23px; width: 56px; height: 56px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #f2e3cb; }
 .companion-halo { position: absolute; width: 37px; height: 37px; border: 1px solid rgba(189,110,53,.35); border-radius: 50%; animation: haloPulse 3s ease-in-out infinite; }
-.companion-atlas { display: block; background-image: url("./assets/liaoling-atlas.png"); background-repeat: no-repeat; background-size: 400% 300%; background-position: var(--atlas-x,0%) var(--atlas-y,0%); }
+.companion-atlas { display: block; background-image: url("./assets/liaoling-atlas-pixel-v1.png"); background-repeat: no-repeat; background-size: 400% 300%; background-position: var(--atlas-x,0%) var(--atlas-y,0%); }
 .companion-art { position: relative; z-index: 1; width: 62px; height: 62px; filter: drop-shadow(0 5px 4px rgba(105,70,35,.18)); animation: companionFloat 3.4s ease-in-out infinite; }
 .companion-identity { max-width: 88px; margin-top: 23px; }
 .companion-identity small, .companion-identity b { display: block; }
