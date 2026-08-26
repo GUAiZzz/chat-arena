@@ -75,8 +75,18 @@ test("ships accessible controls and isolates browser persistence to the static a
 });
 
 test("GitHub Pages assets stay relative and all six pixel companions are packaged", async () => {
-  const html = await fs.readFile(path.join(client, "index.html"), "utf8");
+  const [html, app, css, staticApi, localApi] = await Promise.all([
+    fs.readFile(path.join(client, "index.html"), "utf8"),
+    fs.readFile(path.join(client, "app.js"), "utf8"),
+    fs.readFile(path.join(client, "styles.css"), "utf8"),
+    fs.readFile(path.join(client, "ui", "static-api.js"), "utf8"),
+    fs.readFile(path.join(client, "scripts", "local-api.mjs"), "utf8")
+  ]);
   assert.doesNotMatch(html, /(?:src|href)="\/(?!\/)/);
+  assert.match(html, /styles\.css\?v=3\.1\.1/);
+  assert.match(html, /app\.js\?v=3\.1\.1/);
+  assert.doesNotMatch(`${app}\n${staticApi}\n${localApi}`, /from "\.\.?\/[^"?]+\.(?:js|mjs)"/);
+  assert.doesNotMatch(css, /url\("\.\/assets\/[^"?]+"\)/);
   for (const sprite of ["ya-bo.png", "li-wei.png", "tai-jiao.png", "nuan-deng.png", "juan-xing.png", "ye-mo.png"]) {
     const stat = await fs.stat(path.join(client, "assets", "companions", sprite));
     assert.ok(stat.size > 0, `${sprite} should be packaged`);

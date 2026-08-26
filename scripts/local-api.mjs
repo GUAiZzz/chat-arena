@@ -1,5 +1,5 @@
-import { aggregateVotes, chooseBalancedSample, cleanReasonTags, displayReference, hashNumber, nextStreak, remapDisplayedVote, shouldSwap, todayKey, validateVotePayload } from "../shared/arena-utils.js";
-import { MAX_FILE_BYTES, MAX_ROWS } from "../shared/data-adapter.js";
+import { aggregateVotes, chooseBalancedSample, cleanReasonTags, displayReference, hashNumber, nextStreak, remapDisplayedVote, shouldSwap, todayKey, validateVotePayload } from "../shared/arena-utils.js?v=3.1.1";
+import { MAX_FILE_BYTES, MAX_ROWS } from "../shared/data-adapter.js?v=3.1.1";
 import {
   GENOMES,
   SPECIES,
@@ -13,9 +13,9 @@ import {
   speciesForScores,
   stageForProgress,
   validateReflectionInput
-} from "../shared/companion-growth.js";
-import { analyzeReflection } from "../shared/companion-model.js";
-import { demoSamples, demoSummary } from "../fixtures/demo-dataset.js";
+} from "../shared/companion-growth.js?v=3.1.1";
+import { analyzeReflection } from "../shared/companion-model.js?v=3.1.1";
+import { demoSamples, demoSummary } from "../fixtures/demo-dataset.js?v=3.1.1";
 
 function json(data, status = 200) {
   return { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, body: JSON.stringify(data) };
