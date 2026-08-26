@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const client = path.join(root, "dist", "client");
+const pagesOrigin = String(process.env.PAGES_ORIGIN || "https://guaizzz.github.io/chat-arena").replace(/\/$/, "");
 
 async function assetFetch(request) {
   const pathname = decodeURIComponent(new URL(request.url).pathname).replace(/^\//, "");
@@ -34,7 +35,7 @@ test("serves the real internal arena without hard-coded rankings", async () => {
   assert.match(html, /REAL VOTES ONLY/);
   assert.match(html, /xlsx\.full\.min\.js/);
   assert.doesNotMatch(html, /段位榜|Elo 模拟|12,840|ARENA_DATA|追问接力/);
-  assert.match(html, /https:\/\/guaizzz\.github\.io\/chat-arena\/og\.png/);
+  assert.match(html, new RegExp(`${pagesOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\/og\\.png`));
   assert.doesNotMatch(html, /__SITE_ORIGIN__/);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
