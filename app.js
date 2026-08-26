@@ -7,13 +7,13 @@ import {
   spreadsheetReadSource,
   suggestMapping,
   validateMapping
-} from "./shared/data-adapter.js?v=3.1.2";
-import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.2";
-import { requestJson as api } from "./ui/api-client.js?v=3.1.2";
-import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.2";
-import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.2";
-import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.2";
-import { freshUploadState, state } from "./ui/state.js?v=3.1.2";
+} from "./shared/data-adapter.js?v=3.1.3";
+import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.3";
+import { requestJson as api } from "./ui/api-client.js?v=3.1.3";
+import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.3";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.3";
+import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.3";
+import { freshUploadState, state } from "./ui/state.js?v=3.1.3";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -113,6 +113,7 @@ function showView(view) {
   }
   state.activeView = view;
   document.body.dataset.flowState = "READING";
+  document.body.dataset.activeView = view;
   $$('[data-view-panel]').forEach((panel) => {
     const active = panel.dataset.viewPanel === view;
     panel.hidden = !active;
@@ -212,6 +213,27 @@ async function loadReviewTimeline() {
   state.timeline = pages;
   state.timelineIndex = pages.length - 1;
   state.timelineAtEnd = false;
+}
+
+async function returnToFirstPage() {
+  const closing = $("#closingScreen");
+  if (closing && !closing.hidden) closing.hidden = true;
+  document.body.classList.remove("is-closing");
+  $("#contentsDialog")?.close();
+  $("#reviewDialog")?.close();
+  showView("battle");
+
+  if (!state.timeline.length) await loadReviewTimeline();
+  if (state.timeline.length) {
+    state.timelineAtEnd = false;
+    state.timelineIndex = 0;
+    renderTimelineEntry();
+  } else {
+    await loadBattle();
+  }
+
+  $("#battleShell")?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  $("#battleTitle")?.focus?.({ preventScroll: true });
 }
 
 function renderEmptyBattle(reason) {
@@ -1003,6 +1025,9 @@ function bindEvents() {
   };
   $("#openSetup").addEventListener("click", openSetup);
   $("#coverObject").addEventListener("click", openSetup);
+  $("#returnToFirstPage").addEventListener("click", () => {
+    returnToFirstPage().catch((error) => showToast(error.message || "暂时回不到第一页，请重试。"));
+  });
   $("#closeBook").addEventListener("click", openClosing);
   $("#reopenBook").addEventListener("click", returnToIndex);
   $("#returnToIndex").addEventListener("click", returnToIndex);
@@ -1113,6 +1138,7 @@ function bindEvents() {
 
 async function boot() {
   bindEvents();
+  document.body.dataset.activeView = state.activeView;
   try {
     await loadSession();
     if (state.session?.companion?.born) {
