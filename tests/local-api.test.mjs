@@ -13,8 +13,8 @@ async function request(api, pathname, method = "GET", body = null) {
   return { status: result.status, body: JSON.parse(result.body) };
 }
 
-async function normalizedWorkbook() {
-  const rows = demoSamples.map((sample) => ({
+async function normalizedWorkbook(count = demoSamples.length) {
+  const rows = demoSamples.slice(0, count).map((sample) => ({
     uid: sample.source_uid,
     query: sample.query,
     model_a_resp: sample.response_a,
@@ -26,14 +26,29 @@ async function normalizedWorkbook() {
   return { file: Buffer.from("self-contained Chat Arena fixture"), normalized };
 }
 
-test("local demo starts offline with all twelve supplied cases and admin access", async () => {
+test("custom dataset sizes use whole-page growth milestones", async () => {
+  const api = createLocalApi();
+  const { file, normalized } = await normalizedWorkbook(4);
+  const created = await request(api, "/api/admin/datasets", "POST", { displayName: "四页测试", mapping: {}, preflightSummary: normalized.summary });
+  const versionId = created.body.version.id;
+  await request(api, `/api/admin/datasets/${versionId}/source?filename=four.xlsx`, "PUT", file);
+  await request(api, `/api/admin/datasets/${versionId}/samples/batch`, "POST", { samples: normalized.samples });
+  await request(api, `/api/admin/datasets/${versionId}/validate`, "POST");
+  await request(api, `/api/admin/datasets/${versionId}/publish`, "POST");
+  const born = await request(api, "/api/companion/birth", "POST", { genome: "light" });
+  assert.equal(born.body.companion.season.goal, 4);
+  assert.equal(born.body.companion.season.nextMilestone, 2);
+  assert.equal(born.body.companion.season.remaining, 2);
+});
+
+test("local demo starts offline with all nine sanitized cases and admin access", async () => {
   const session = await request(createLocalApi(), "/api/session");
   assert.equal(session.status, 200);
   assert.equal(session.body.runtime, "local");
   assert.equal(session.body.isAdmin, true);
-  assert.equal(session.body.activeVersion.sampleCount, 12);
+  assert.equal(session.body.activeVersion.sampleCount, 9);
   assert.equal(session.body.activeVersion.sourceFilename, "chat-arena-demo.xlsx");
-  assert.equal(session.body.activeVersion.summary.total_rows, 13);
+  assert.equal(session.body.activeVersion.summary.total_rows, 10);
   assert.equal(session.body.activeVersion.summary.excluded_duplicate_rows, 1);
 });
 
@@ -131,14 +146,14 @@ test("the supplied XLSX completes draft, source upload, batch validation, publis
   assert.equal((await request(api, `/api/admin/datasets/${versionId}/samples/batch`, "POST", { samples: normalized.samples })).status, 201);
   const checked = await request(api, `/api/admin/datasets/${versionId}/validate`, "POST");
   assert.equal(checked.body.valid, true);
-  assert.equal(checked.body.summary.usable_rows, 12);
+  assert.equal(checked.body.summary.usable_rows, 9);
   assert.equal(checked.body.summary.excluded_duplicate_rows, 1);
-  assert.equal(checked.body.summary.missing_model_ids, 12);
+  assert.equal(checked.body.summary.missing_model_ids, 9);
   assert.equal((await request(api, `/api/admin/datasets/${versionId}/publish`, "POST")).status, 200);
 
   const session = await request(api, "/api/session");
   assert.equal(session.body.activeVersion.id, versionId);
-  assert.equal(session.body.activeVersion.sampleCount, 12);
+  assert.equal(session.body.activeVersion.sampleCount, 9);
   assert.equal(session.body.progress.completed, 0);
   assert.equal((await request(api, "/api/results")).body.totalVotes, 0);
   assert.equal((await request(api, "/api/results?version=local-demo-v1")).body.totalVotes, 1);

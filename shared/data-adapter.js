@@ -259,3 +259,10 @@ export function acceptedFile(file) {
   const name = String(file?.name || "").toLowerCase();
   return name.endsWith(".xlsx") || name.endsWith(".csv");
 }
+
+export function spreadsheetReadSource(buffer, filename) {
+  const csv = String(filename || "").toLowerCase().endsWith(".csv");
+  return csv
+    ? { data: new TextDecoder("utf-8").decode(buffer), type: "string" }
+    : { data: buffer, type: "array" };
+}

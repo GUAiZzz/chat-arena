@@ -6,7 +6,7 @@ function getApi() {
   api ||= createLocalApi({
     runtime: "static",
     storage: window.localStorage,
-    storageKey: "chat-arena:static-demo:v1",
+    storageKey: "chat-arena:pixel-storybook:v1",
     COMPANION_MODEL_PROVIDER: "demo"
   });
   return api;

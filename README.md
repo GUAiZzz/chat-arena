@@ -1,15 +1,15 @@
 # Chat Arena
 
-Chat Arena 是一个聊天偏好盲测与“聊灵”成长 Demo。体验者会看到同一个问题对应的两条匿名回复，在今天选择的 3、6、9 或 12 次判断中选择更愿意继续聊的一方；成长反馈负责把偏好变得可见、有记忆点，但不参与投票统计。
+Chat Arena 是一个像素互动故事书式的聊天偏好盲测与“聊灵”成长 Demo。体验者会看到同一个问题对应的两条匿名回复，在今天选择的 3、6 或 9 次判断中选择更愿意继续聊的一方；成长反馈负责把偏好变得可见、有记忆点，但不参与投票统计。
 
 在线体验：<https://guaizzz.github.io/chat-arena/>
 
 ## 核心体验
 
-- 3 / 6 / 9 / 12 道匿名聊天回复判断
+- 3 / 6 / 9 道匿名聊天回复判断
 - A、B、都挺好、都不行四种选择
 - 澄光、绒云、异星三种生命基因
-- 根据本轮长度动态发生三次成长对话（例如 12 题为第 4、8、12 次）
+- 根据本轮长度动态发生三次成长对话（9 题为第 3、6、9 次）
 - 完成本轮后先进入全书校对，确认装订后揭晓聊灵
 - 目录回看已完成题目，装订前可修改选择和理由
 - 六只等价像素伙伴：芽啵、砾尾、苔角、暖灯、卷星、夜墨
@@ -26,15 +26,15 @@ npm run demo
 
 浏览器打开 `http://127.0.0.1:4173`。macOS 也可以双击 `启动Chat Arena.command`。
 
-本地模式使用进程内 API，默认载入 12 道 Demo Case；体验者可在出生时选择 3、6、9 或 12 题，并支持题库上传、检查、发布、版本切换和回滚。关闭本地服务后，进程内投票和新题库会重置。
+本地模式使用进程内 API，默认载入 9 道完全虚构、已脱敏的 Demo Case；体验者可在出生时选择 3、6 或 9 题，并支持题库上传、检查、发布、版本切换和回滚。关闭本地服务后，进程内投票和新题库会重置。
 
 ## GitHub Pages 静态模式
 
 GitHub Pages 只能发布静态文件，不能运行 Worker、D1 或 R2。Pages 版本通过与本地 API 相同的前端接口适配器运行：
 
-- 使用仓库内置的 12 道 Demo Case；
+- 使用仓库内置的 9 道完全虚构、已脱敏 Demo Case；
 - 题数选择、题序、投票、三次成长和最终揭晓保存在当前浏览器；
-- 投票、成长、揭晓和题库版本保存在当前浏览器的 `localStorage`；
+- 投票、成长、揭晓和题库版本保存在当前浏览器的 `chat-arena:pixel-storybook:v1` 独立存储空间；旧版数据不会迁移或删除；
 - 刷新后可以继续，清除网站数据后会重置；
 - 里程碑回答原文不会写入浏览器存储，只保存规则分值、安全短回应与摘要；
 - 题库上传只保存在当前浏览器，不会上传原始文件到服务器；
@@ -55,16 +55,17 @@ npm run check
 npm test
 ```
 
-GitHub Actions 会在 pull request 中执行检查与构建；合并到 `main` 后，才会把 `dist/client` 发布到 GitHub Pages。
+GitHub Actions 会在 pull request 中执行检查与两套构建。正式 GitHub Pages 只允许从 `main` 手动触发发布，不随合并自动更新。
 
 ## 目录
 
 - `app.js`、`ui/`：对决、聊灵、结果、静态 API 和题库管理交互
 - `shared/`：数据预检、A/B 换位、聊灵成长规则与投票汇总
-- `fixtures/`：Pages 和本地 Demo 的 12 道样本
+- `fixtures/`：Pages 和本地 Demo 的 9 道公开脱敏样本
 - `scripts/local-api.mjs`：本地 API，并为静态模式提供同构 Demo 状态机
 - `worker/`、`db/`、`drizzle/`：保留的 Worker、D1 和迁移参考实现，不参与 GitHub Pages 部署
-- `.github/workflows/pages.yml`：测试与 GitHub Pages 发布流程
+- `.github/workflows/ci.yml`：pull request 与 `main` 的检查、测试和两套构建
+- `.github/workflows/pages.yml`：仅手动触发的正式 GitHub Pages 发布流程
 
 ## 隐私与安全
 

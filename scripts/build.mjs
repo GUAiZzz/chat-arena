@@ -10,6 +10,7 @@ const server = path.join(dist, "server");
 const shared = path.join(dist, "shared");
 const ui = path.join(dist, "client", "ui");
 const publicFiles = ["index.html", "styles.css", "app.js"];
+const pagesOrigin = String(process.env.PAGES_ORIGIN || "https://guaizzz.github.io/chat-arena").replace(/\/$/, "");
 
 await fs.rm(dist, { recursive: true, force: true });
 await fs.mkdir(client, { recursive: true });
@@ -19,7 +20,10 @@ await fs.mkdir(ui, { recursive: true });
 await Promise.all(publicFiles.filter((file) => file !== "index.html").map((file) => fs.copyFile(path.join(root, file), path.join(client, file))));
 const sourceHtml = await fs.readFile(path.join(root, "index.html"), "utf8");
 await fs.writeFile(path.join(client, "index.html"), pages
-  ? sourceHtml.replace('data-runtime="server"', 'data-runtime="static"').replace('>LOCAL DEMO<', '>STATIC DEMO<')
+  ? sourceHtml
+    .replace('data-runtime="server"', 'data-runtime="static"')
+    .replace('>LOCAL DEMO<', '>STATIC DEMO<')
+    .replaceAll("__SITE_ORIGIN__", pagesOrigin)
   : sourceHtml);
 await fs.cp(path.join(root, "shared"), path.join(client, "shared"), { recursive: true });
 await fs.cp(path.join(root, "shared"), shared, { recursive: true });

@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const client = path.join(root, "dist", "client");
+const pagesOrigin = String(process.env.PAGES_ORIGIN || "https://guaizzz.github.io/chat-arena").replace(/\/$/, "");
 
 async function assetFetch(request) {
   const pathname = decodeURIComponent(new URL(request.url).pathname).replace(/^\//, "");
@@ -23,18 +24,18 @@ test("serves the real internal arena without hard-coded rankings", async () => {
   const response = await worker.fetch(new Request("https://demo.local/"), { ASSETS: { fetch: assetFetch } });
   const html = await response.text();
   assert.equal(response.status, 200);
-  assert.match(html, /<title>Chat Arena · 养成你的聊灵<\/title>/);
-  assert.match(html, /养成一只聊灵/);
+  assert.match(html, /<title>Chat Arena · 互动故事手册<\/title>/);
+  assert.match(html, /打开今天的手册/);
   assert.match(html, /题库管理/);
   assert.match(html, /STATIC DEMO/);
-  assert.match(html, /进入 Chat Arena/);
-  assert.match(html, /YOUR LIAO LING/);
+  assert.match(html, /开始这一册/);
+  assert.match(html, /查看当前聊灵成长状态/);
   assert.match(html, /id="previousBattle"/);
   assert.match(html, /id="editVote"/);
-  assert.match(html, /RECORDED VOTES ONLY/);
+  assert.match(html, /REAL VOTES ONLY/);
   assert.match(html, /xlsx\.full\.min\.js/);
   assert.doesNotMatch(html, /段位榜|Elo 模拟|12,840|ARENA_DATA|追问接力/);
-  assert.match(html, /https:\/\/guaizzz\.github\.io\/chat-arena\/og\.png/);
+  assert.match(html, new RegExp(`${pagesOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\/og\\.png`));
   assert.doesNotMatch(html, /__SITE_ORIGIN__/);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
@@ -60,11 +61,14 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(script, /\/api\/admin\/datasets/);
   assert.match(script, /GitHub Pages · 浏览器本地模式/);
   assert.match(script, /选择已更新，结果中的原票已经被覆盖/);
+  assert.match(script, /成长章节：已装订/);
+  assert.match(script, /function renderEmptyBattle[\s\S]*?updateProgress\(state\.session\?\.progress\);[\s\S]*?function renderContents/);
   assert.doesNotMatch(`${script}\n${companionUi}`, /localStorage|sessionStorage/);
   assert.match(staticApi, /window\.localStorage/);
-  assert.match(staticApi, /chat-arena:static-demo:v1/);
+  assert.match(staticApi, /chat-arena:pixel-storybook:v1/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /\.outcome-actions \.button,[\s\S]*?\.preview-table,[\s\S]*?font-size: 12px/);
   assert.equal(noJekyll, "");
   assert.match(html, /data-runtime="static"/);
   assert.match(vendor, /0\.20\.3/);
@@ -77,6 +81,11 @@ test("GitHub Pages assets stay relative and all six pixel companions are package
     const stat = await fs.stat(path.join(client, "assets", "companions", sprite));
     assert.ok(stat.size > 0, `${sprite} should be packaged`);
   }
+  for (const asset of ["storybook-cover-pixel-v1.png", "genome-seeds-pixel-v1.png", "liaoling-atlas-pixel-v1.png"]) {
+    const stat = await fs.stat(path.join(client, "assets", asset));
+    assert.ok(stat.size > 0, `${asset} should be packaged`);
+  }
+  assert.doesNotMatch(html, /id="queryImage"|id="queryVisual"/);
 });
 
 test("packages the Worker with its shared server modules", async () => {

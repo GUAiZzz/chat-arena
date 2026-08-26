@@ -3,7 +3,7 @@ import test from "node:test";
 import { createLocalApi } from "../scripts/local-api.mjs";
 
 class MemoryStorage {
-  constructor() { this.values = new Map(); }
+  constructor(entries = []) { this.values = new Map(entries); }
   getItem(key) { return this.values.has(key) ? this.values.get(key) : null; }
   setItem(key, value) { this.values.set(key, String(value)); }
 }
@@ -34,7 +34,7 @@ test("GitHub Pages state survives reload and completes nine votes, three reflect
   let api = createLocalApi({ runtime: "static", storage, COMPANION_MODEL_PROVIDER: "demo" });
   const session = await request(api, "/api/session");
   assert.equal(session.body.runtime, "static");
-  assert.equal(session.body.activeVersion.sampleCount, 12);
+  assert.equal(session.body.activeVersion.sampleCount, 9);
   await request(api, "/api/companion/birth", "POST", { genome: "cloud" });
 
   for (let index = 1; index <= 9; index += 1) {
@@ -52,7 +52,7 @@ test("GitHub Pages state survives reload and completes nine votes, three reflect
       const privateText = `第${index}阶段只在浏览器内分析的原句`;
       const reflected = await request(api, "/api/companion/reflections", "POST", { milestone: index, text: privateText });
       assert.equal(reflected.status, 201);
-      assert.doesNotMatch(storage.getItem("chat-arena:static-demo:v1"), new RegExp(privateText));
+      assert.doesNotMatch(storage.getItem("chat-arena:pixel-storybook:v1"), new RegExp(privateText));
     }
     if (index === 4) api = createLocalApi({ runtime: "static", storage, COMPANION_MODEL_PROVIDER: "demo" });
   }
@@ -71,26 +71,31 @@ test("GitHub Pages state survives reload and completes nine votes, three reflect
   assert.equal((await request(api, "/api/battles/next")).body.reason, "complete");
 });
 
-test("GitHub Pages supports a twelve-question season with fourth/eighth/twelfth growth nodes", async () => {
-  const api = createLocalApi({ runtime: "static", storage: new MemoryStorage(), COMPANION_MODEL_PROVIDER: "demo" });
-  const born = await request(api, "/api/companion/birth", "POST", { genome: "alien", goal: 12 });
-  assert.equal(born.body.companion.season.goal, 12);
-  for (let index = 1; index <= 12; index += 1) {
-    const next = await request(api, "/api/battles/next");
-    assert.ok(next.body.battle?.sampleToken, `battle ${index} should load`);
-    const vote = await request(api, "/api/votes", "POST", { sampleToken: next.body.battle.sampleToken, winner: "A", reasonTags: [], dwellMs: 700, contextOpened: false });
-    if ([4, 8, 12].includes(index)) {
-      assert.equal(vote.body.companion.season.pendingReflection.milestone, index);
-      const reflected = await request(api, "/api/companion/reflections", "POST", { milestone: index, text: "我想先理解，再一起继续。" });
-      assert.equal(reflected.status, 201);
+test("GitHub Pages exposes only supported three, six, or nine-question seasons", async () => {
+  for (const goal of [3, 6, 9]) {
+    const api = createLocalApi({ runtime: "static", storage: new MemoryStorage(), COMPANION_MODEL_PROVIDER: "demo" });
+    const born = await request(api, "/api/companion/birth", "POST", { genome: "alien", goal });
+    assert.equal(born.body.companion.season.goal, goal);
+    for (let index = 1; index <= goal; index += 1) {
+      const next = await request(api, "/api/battles/next");
+      assert.ok(next.body.battle?.sampleToken, `battle ${index} of ${goal} should load`);
+      const vote = await request(api, "/api/votes", "POST", { sampleToken: next.body.battle.sampleToken, winner: "A", reasonTags: [], dwellMs: 700, contextOpened: false });
+      if (vote.body.companion.season.pendingReflection) {
+        const milestone = vote.body.companion.season.pendingReflection.milestone;
+        assert.equal((await request(api, "/api/companion/reflections", "POST", { milestone, text: "我想先理解，再一起继续。" })).status, 201);
+      }
     }
+    assert.equal((await request(api, "/api/companion")).body.companion.season.canFinalize, true);
   }
-  const snapshot = await request(api, "/api/companion");
-  assert.equal(snapshot.body.companion.season.total, 12);
-  assert.equal(snapshot.body.companion.season.revealed, false);
-  assert.equal(snapshot.body.companion.season.canFinalize, true);
-  const finalized = await request(api, "/api/companion/finalize", "POST");
-  assert.equal(finalized.status, 200);
-  assert.equal(finalized.body.companion.season.revealed, true);
-  assert.ok(["卷星", "夜墨"].includes(finalized.body.companion.season.species.name));
+});
+
+test("the new browser storage key leaves the retired version untouched", async () => {
+  const oldState = '{"legacy":"keep-me"}';
+  const storage = new MemoryStorage([["chat-arena:static-demo:v1", oldState]]);
+  const api = createLocalApi({ runtime: "static", storage, COMPANION_MODEL_PROVIDER: "demo" });
+  await request(api, "/api/companion/birth", "POST", { genome: "light", goal: 3 });
+  const next = await request(api, "/api/battles/next");
+  await request(api, "/api/votes", "POST", { sampleToken: next.body.battle.sampleToken, winner: "A", reasonTags: [], dwellMs: 700, contextOpened: false });
+  assert.equal(storage.getItem("chat-arena:static-demo:v1"), oldState);
+  assert.ok(storage.getItem("chat-arena:pixel-storybook:v1"));
 });

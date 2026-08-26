@@ -6,6 +6,7 @@ import {
   addScores,
   analysisToPoints,
   milestoneDefinition,
+  milestonesForGoal,
   normalizeSessionGoal,
   pendingMilestone,
   scoreReasonTags,
@@ -64,7 +65,7 @@ function bodyText(value) {
 export function createLocalApi(runtimeEnv = {}) {
   const now = new Date().toISOString();
   const storage = runtimeEnv.storage || null;
-  const storageKey = runtimeEnv.storageKey || "chat-arena:static-demo:v1";
+  const storageKey = runtimeEnv.storageKey || "chat-arena:pixel-storybook:v1";
   const runtime = runtimeEnv.runtime || "local";
   const freshState = () => ({
     versions: [{
@@ -163,7 +164,7 @@ export function createLocalApi(runtimeEnv = {}) {
     const completed = Math.min(goal, progress?.completed || 0);
     const stage = stageForProgress(completed, reflected, goal, Boolean(season.revealed_at));
     const pending = pendingMilestone(completed, reflected, goal);
-    const upcoming = [goal / 3, goal * 2 / 3, goal].find((milestone) => completed < milestone) || null;
+    const upcoming = milestonesForGoal(goal).find((milestone) => completed < milestone) || null;
     const latest = season.events.slice().reverse().find((event) => event.companion_reply);
     const species = Object.values(SPECIES).find((item) => item.id === season.species) || null;
     return {
