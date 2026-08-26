@@ -68,6 +68,7 @@ test("ships accessible controls and isolates browser persistence to the static a
   assert.match(staticApi, /chat-arena:pixel-storybook:v1/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /\.outcome-actions \.button,[\s\S]*?\.preview-table,[\s\S]*?font-size: 12px/);
   assert.equal(noJekyll, "");
   assert.match(html, /data-runtime="static"/);
   assert.match(vendor, /0\.20\.3/);

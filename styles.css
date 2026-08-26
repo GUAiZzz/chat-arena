@@ -728,6 +728,57 @@ body.is-welcome, body.is-setup {
 }
 .toast { font-size: 12px; }
 
+/* Keep every user-facing helper label readable on desktop. */
+.cover-copy small,
+.cover-footnote,
+.genome-picker legend span,
+.genome-picker legend small,
+.genome-option > span:nth-of-type(2) small,
+.genome-option em,
+.length-option small,
+.length-option em,
+.setup-preview small,
+.setup-note,
+.chat-line,
+.vote-button,
+.companion-identity b,
+#referenceText,
+.reason-block > span b,
+.reason-block > span small,
+.reason-tags button,
+.outcome-actions .button,
+.growth-page label > span,
+.reflection-meta,
+.dialog-actions .button,
+.inline-error,
+.reveal-copy li,
+.notice p,
+.metric-grid small,
+.metric-grid span,
+.section-heading em,
+.bar-row > div,
+.empty-inline,
+.health-card p,
+.health-metrics small,
+.rule-grid p,
+.stepper li,
+.dropzone p,
+.dropzone em,
+.field-row small,
+.preview-table,
+.check-grid small,
+.issue,
+.duplicate-confirm small,
+.publish-grid p:not(.eyebrow),
+.text-field,
+.publish-summary article,
+.publish-progress b,
+.version-row,
+.version-badge,
+.version-actions button {
+  font-size: 12px;
+}
+
 @media (min-width: 900px) {
   body[data-flow-state="READING"] {
     height: 100vh;
