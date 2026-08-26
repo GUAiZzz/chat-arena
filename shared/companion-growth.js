@@ -1,4 +1,4 @@
-import { cleanReasonTags, hashNumber, isRecord } from "./arena-utils.js?v=3.1.1";
+import { cleanReasonTags, hashNumber, isRecord } from "./arena-utils.js?v=3.1.2";
 
 export const GENOMES = Object.freeze({
   light: { id: "light", name: "澄光", tone: "矿植、透亮、好奇" },

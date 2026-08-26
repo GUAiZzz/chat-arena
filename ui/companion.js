@@ -17,7 +17,7 @@ function setAtlas(element, atlas = [0, 0]) {
 function setSpecies(element, species) {
   if (!element || !species?.sprite) return;
   element.classList.add("is-final-sprite");
-  element.style.setProperty("--companion-sprite", `url("./assets/companions/${species.sprite}?v=3.1.1")`);
+  element.style.setProperty("--companion-sprite", `url("./assets/companions/${species.sprite}?v=3.1.2")`);
   element.dataset.species = species.id || "";
 }
 
@@ -49,6 +49,7 @@ export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
   }
   setCompanionVisual($("#companionArt"), season);
   setCompanionVisual($("#companionCapsuleArt"), season);
+  setCompanionVisual($("#resultsCompanionArt"), season);
   $("#companionGenome").textContent = born ? `${companion.genomeName || "澄光"} · 页角` : "尚未出生";
   $("#companionRole").textContent = season?.role === "echo" ? "回声分身" : "主伙伴";
   $("#companionTitle").textContent = copy.title;
@@ -72,6 +73,10 @@ export function renderCompanion(snapshot, { runtime = "hosted" } = {}) {
   mode.textContent = "演示分析";
   $("#companionCapsuleName").textContent = season?.revealed ? season.species.name : `${season?.stageName || "出生"} · ${companion?.genomeName || "聊灵"}`;
   $("#companionCapsuleMeta").textContent = next;
+  const resultsName = $("#resultsCompanionName");
+  const resultsMessage = $("#resultsCompanionMessage");
+  if (resultsName) resultsName.textContent = copy.title;
+  if (resultsMessage) resultsMessage.textContent = copy.message;
   $("#demoReset").hidden = !["local", "static"].includes(runtime);
 }
 
@@ -137,7 +142,7 @@ export function bindCompanionUi({ api, showToast, onBirth, onReflection, onReset
       const genome = $('input[name="genome"]:checked')?.value || "light";
       const goal = Number($('input[name="sessionGoal"]:checked')?.value || 9);
       const payload = await api("/api/companion/birth", { method: "POST", body: JSON.stringify({ genome, goal }) });
-      onBirth(payload.companion);
+      await onBirth?.(payload.companion);
     } catch (error) {
       showToast(error.message);
     } finally {

@@ -1,4 +1,4 @@
-import { AXES, GENOMES, PROMPT_VERSION, TONE_LABELS, demoAnalyzeReflection, milestoneDefinition, validateModelAnalysis } from "./companion-growth.js?v=3.1.1";
+import { AXES, GENOMES, PROMPT_VERSION, TONE_LABELS, demoAnalyzeReflection, milestoneDefinition, validateModelAnalysis } from "./companion-growth.js?v=3.1.2";
 
 const analysisSchema = {
   type: "object",

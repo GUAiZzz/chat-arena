@@ -7,17 +7,20 @@ import {
   spreadsheetReadSource,
   suggestMapping,
   validateMapping
-} from "./shared/data-adapter.js?v=3.1.1";
-import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.1";
-import { requestJson as api } from "./ui/api-client.js?v=3.1.1";
-import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.1";
-import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.1";
-import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.1";
-import { freshUploadState, state } from "./ui/state.js?v=3.1.1";
+} from "./shared/data-adapter.js?v=3.1.2";
+import { REASON_TAGS } from "./shared/arena-utils.js?v=3.1.2";
+import { requestJson as api } from "./ui/api-client.js?v=3.1.2";
+import { formatDate, formatPercent, versionStatusLabel } from "./ui/admin.js?v=3.1.2";
+import { applyVoteSelection, renderReasonTagButtons } from "./ui/arena.js?v=3.1.2";
+import { bindCompanionUi, openReflection, openReveal, renderCompanion } from "./ui/companion.js?v=3.1.2";
+import { freshUploadState, state } from "./ui/state.js?v=3.1.2";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let pendingRevealSnapshot = null;
+
+const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
 function milestonesForBook(total) {
   const safeTotal = Math.max(0, Number(total) || 0);
@@ -109,6 +112,7 @@ function showView(view) {
     view = "battle";
   }
   state.activeView = view;
+  document.body.dataset.flowState = "READING";
   $$('[data-view-panel]').forEach((panel) => {
     const active = panel.dataset.viewPanel === view;
     panel.hidden = !active;
@@ -943,36 +947,76 @@ async function runVersionAction(button) {
 }
 
 function bindEvents() {
-  const leaveWelcome = () => {
-    $("#welcomeScreen").hidden = true;
-    $("#setupScreen").hidden = true;
+  let coverIsOpening = false;
+  const finishCoverOpening = () => {
+    const welcome = $("#welcomeScreen");
+    const setup = $("#setupScreen");
+    welcome.hidden = true;
+    welcome.classList.remove("is-opening");
+    setup.classList.remove("is-cover-arriving");
     document.body.classList.remove("is-welcome");
-    document.body.classList.remove("is-setup");
-    document.body.dataset.flowState = "READING";
-    window.scrollTo({ top: 0, behavior: "instant" });
-    $("#main-content").focus({ preventScroll: true });
-  };
-  const openSetup = () => {
-    $("#welcomeScreen").hidden = true;
-    $("#setupScreen").hidden = false;
-    document.body.classList.remove("is-welcome");
+    document.body.classList.remove("is-cover-opening");
     document.body.classList.add("is-setup");
     document.body.dataset.flowState = "SETUP";
     $("#setupTitle")?.focus?.({ preventScroll: true });
   };
+  const leaveWelcome = async () => {
+    const setup = $("#setupScreen");
+    setup.classList.add("is-opening-to-reading");
+    document.body.classList.add("is-entering-reading");
+    if (!prefersReducedMotion()) await pause(460);
+    setup.hidden = true;
+    setup.classList.remove("is-opening-to-reading");
+    document.body.classList.remove("is-setup", "is-entering-reading");
+    document.body.dataset.flowState = "READING";
+    window.scrollTo({ top: 0, behavior: "instant" });
+    $("#main-content").focus({ preventScroll: true });
+  };
+  const openSetup = async () => {
+    if (coverIsOpening) return;
+    coverIsOpening = true;
+    const welcome = $("#welcomeScreen");
+    const setup = $("#setupScreen");
+    setup.hidden = false;
+    if (prefersReducedMotion()) {
+      finishCoverOpening();
+      return;
+    }
+    document.body.classList.add("is-cover-opening");
+    welcome.classList.add("is-opening");
+    setup.classList.add("is-cover-arriving");
+    await pause(680);
+    finishCoverOpening();
+  };
+  const openClosing = () => {
+    const closing = $("#closingScreen");
+    closing.hidden = false;
+    document.body.classList.add("is-closing");
+    document.body.dataset.flowState = "CLOSING";
+    window.setTimeout(() => $("#closingTitle")?.focus?.({ preventScroll: true }), prefersReducedMotion() ? 0 : 260);
+  };
+  const returnToIndex = () => {
+    $("#closingScreen").hidden = true;
+    document.body.classList.remove("is-closing");
+    showView("results");
+    $("#resultsTitle")?.focus?.({ preventScroll: true });
+  };
   $("#openSetup").addEventListener("click", openSetup);
   $("#coverObject").addEventListener("click", openSetup);
+  $("#closeBook").addEventListener("click", openClosing);
+  $("#reopenBook").addEventListener("click", returnToIndex);
+  $("#returnToIndex").addEventListener("click", returnToIndex);
   bindCompanionUi({
     api,
     showToast,
-    onBirth: (snapshot) => {
+    onBirth: async (snapshot) => {
       updateCompanionSnapshot(snapshot);
       if (snapshot?.season && state.session) {
         state.session.progress = { ...state.session.progress, completed: Number(snapshot.season.completed || 0), total: Number(snapshot.season.total || 9), goal: Number(snapshot.season.goal || snapshot.season.total || 9), remaining: Number(snapshot.season.remaining || 0) };
         updateProgress(state.session.progress);
       }
-      leaveWelcome();
-      if (!state.battle) loadBattle();
+      if (!state.battle) await loadBattle();
+      await leaveWelcome();
     },
     onReflection: (snapshot) => {
       updateCompanionSnapshot(snapshot);
